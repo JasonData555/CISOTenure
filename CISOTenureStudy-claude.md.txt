@@ -1,0 +1,637 @@
+﻿# CISO Tenure Study — Project Intelligence File
+**Hitch Partners | People Analytics Research**
+*This file is the authoritative reference for Claude Code. Read it fully before writing any code, script, or output in this project.*
+
+
+---
+
+
+## WHAT THIS PROJECT IS
+
+
+A publication-grade study of North American CISO tenure spanning 2017–2025, designed to withstand scrutiny from journalists at outlets like the Wall Street Journal. The study measures how long CISOs stay in their roles and how that has changed across pre-COVID, COVID, and post-COVID periods.
+
+
+**Primary deliverable:** A statistically defensible median CISO tenure figure with trend analysis over 8 years.
+**Secondary deliverables:** Hazard rate (when CISOs are most likely to exit), era comparison curves, and sample composition tables.
+
+
+---
+
+
+## WHAT THIS PROJECT IS NOT
+
+
+- It is NOT a compensation study
+- It is NOT a stratified analysis by company size, industry, or region (see COVARIATE RULES below)
+- It is NOT a survey — data comes from scraped LinkedIn work history
+- It is NOT person-level analysis — the unit of observation is the role episode
+
+
+---
+
+
+## DATA FOUNDATION
+
+
+### Source
+~1,200 LinkedIn profiles from Hitch Partners' proprietary database. Hitch specializes in passive candidate sourcing — these are not self-selected active job seekers. Profiles were selected by data completeness: must have enough fields to identify CISO-level roles and scrape work history.
+
+
+### Visibility Bias (only bias to disclose)
+Profiles are professionally visible CISOs — identifiable through LinkedIn presence, referrals, or public activity. Truly invisible CISOs (no LinkedIn, no public footprint) are underrepresented. This population is small, skews older and longer-tenured, and warrants one disclosure sentence. Do not overstate this limitation.
+
+
+### What "completeness" means for selection
+A profile qualifies if it has: a valid LinkedIn URL, at least one identifiable CISO-level title, at least one role with a start date, and industry/company size inferable from Hitch records.
+
+
+---
+
+
+## UNIT OF ANALYSIS
+
+
+**The role episode — not the person.**
+
+
+One CISO who held three CISO-level roles contributes three episodes. This is intentional and standard in labor economics research. It is explicitly disclosed in the methodology note.
+
+
+Expected yield:
+- 1,200 profiles × 2–3 episodes average = 2,400–3,600 raw episodes
+- After title filtering and QA: ~1,800–2,500 valid episodes
+- Completed (non-censored) episodes: ~1,200–1,850
+- This is a statistically powerful dataset
+
+
+---
+
+
+## CENSORING — CRITICAL
+
+
+Current roles are RIGHT-CENSORED observations. They are NOT excluded and NOT treated as complete.
+
+
+**Every current role must be tagged:**
+- `is_censored = True`
+- `scrape_date` recorded per individual profile (not batch date)
+- `duration_months_to_scrape_date` calculated as the observed duration
+
+
+**In KM analysis:**
+- `duration` = `duration_months` for completed; `duration_months_to_scrape_date` for censored
+- `event_observed` = `not is_censored` (True = exited, False = still in role)
+
+
+Dropping censored observations biases toward shorter tenures. Including them uncorrected biases toward longer. KM handles both correctly. This is non-negotiable.
+
+
+---
+
+
+## WITHIN-PERSON CORRELATION — CRITICAL
+
+
+Multiple episodes from the same person are NOT statistically independent. Standard KM assumes independence. Violating this produces artificially narrow confidence intervals.
+
+
+**The fix: cluster standard errors by profile_id in all KM and Cox models.**
+
+
+In lifelines, use:
+```python
+from lifelines import CoxPHFitter
+
+
+cph = CoxPHFitter()
+cph.fit(df, duration_col='duration_months', event_col='event_observed',
+       cluster_col='profile_id')
+```
+
+
+For KM curves with clustered SE, use the `KaplanMeierFitter` with bootstrap confidence intervals grouped by `profile_id`, or report the Cox-derived median as the primary figure and KM as visual only.
+
+
+**Every analysis function must cluster on profile_id. No exceptions.**
+
+
+Add this check to `analysis_guards.py`:
+```python
+def assert_clustering_enabled(kwargs: dict):
+   if 'cluster_col' not in kwargs or kwargs['cluster_col'] != 'profile_id':
+       raise ValueError(
+           "All survival models must cluster standard errors by profile_id "
+           "to account for within-person correlation across episodes. "
+           "Add cluster_col='profile_id' to your fitter call."
+       )
+```
+
+
+---
+
+
+## COVARIATE RULES — HARD CONSTRAINTS
+
+
+Company size, industry, and region were captured at scrape time (2025), not at episode start. These attributes change materially over 8 years. They CANNOT be used as KM stratification variables.
+
+
+| Variable | Use | Forbidden Use |
+|---|---|---|
+| `company_size_tier` | Sample composition table only | KM stratification |
+| `industry_sector` / `industry_normalized` | Sample composition table only | KM stratification |
+| `profile_region` | Sample composition table only | KM stratification |
+| `episode_start_era` | PRIMARY analytical variable — KM stratification ✓ | N/A |
+| `start_year` | Cohort trend chart ✓ | N/A |
+| `profile_id` | Clustering identifier ✓ | N/A |
+
+
+The `analysis_guards.py` file enforces this at runtime. Import and call guard functions at the top of every analysis block.
+
+
+**One-sentence disclosure for methodology note:**
+*"Company size, industry, and geographic region are reported for sample composition purposes only; because these attributes can change materially over an 8-year study window through acquisitions, growth, and relocation, they are not used as stratification variables in survival analysis."*
+
+
+**One-sentence disclosure for region specifically:**
+*"LinkedIn does not provide historical location data for past role episodes, making episode-level geographic assignment unreliable across an 8-year study window."*
+
+
+---
+
+
+## ERA CLASSIFICATION
+
+
+Applied to every episode based on `start_year` + `start_month`:
+
+
+| Era | Date Range | Rationale |
+|---|---|---|
+| Pre-COVID | Before March 2020 | Pre-pandemic baseline |
+| COVID | March 2020 – December 2021 | WHO pandemic declaration through widespread vaccine rollout |
+| Post-COVID | January 2022 – present | Labor market reshuffling period |
+
+
+This is your primary analytical variable. Era comparison is the headline finding.
+
+
+---
+
+### Era Statistical Power — Known Limitations
+
+COVID and Post-COVID eras have fewer completed episodes than the 100-episode
+minimum due to structural constraints, not data quality issues:
+
+  Pre-COVID:    PASS — sufficient completed episodes, tight CI expected
+  COVID:        89 completed — 11 below minimum, wide CI expected
+  Post-COVID:   68 completed — 32 below minimum, wide CI expected
+
+This is a feature of studying recent periods where many roles are ongoing.
+KM estimates for these eras are valid but less precise.
+
+REQUIRED HANDLING IN ANALYSIS:
+
+1. Do NOT suppress or exclude COVID/Post-COVID curves
+2. Confidence bands must be shown — do not hide them
+3. Call assert_sufficient_completed_episodes() before each era fit —
+   it will issue a warning, which is expected and correct behavior
+4. Annotate each era curve directly on the chart with its n= completed
+   count so readers can assess precision themselves
+5. Post-COVID cohort years 2022–2024 in the cohort trend chart must
+   show dashed circles (low_confidence=True) per existing spec
+
+REQUIRED CHART ANNOTATION for COVID and Post-COVID curves:
+  Add a small annotation adjacent to each underpowered curve:
+  "n=[X] completed episodes — interpret with caution"
+  Position: end of the curve line, right-aligned
+  Font: 10px, hitchBlueGray, italic
+
+REQUIRED DISCLOSURE LANGUAGE — use verbatim in methodology note
+and as a chart caption on Figure 2:
+
+  "COVID and Post-COVID era curves reflect fewer completed episodes
+   (89 and 68 respectively) than the pre-registered 100-episode minimum,
+   a structural consequence of studying periods where many roles remain
+   ongoing. Kaplan-Meier estimates are statistically valid but carry
+   wider confidence intervals. This uncertainty reflects genuine market
+   volatility in recent cohorts rather than a data deficiency."
+
+
+## TITLE NORMALIZATION RULES
+
+
+**Include:**
+- Contains: `CISO`, `Chief Information Security Officer`, `Chief Security Officer`, `CSO`
+- OR contains both `security` AND one of `VP`, `SVP`, `EVP`, `Vice President` — only if no CISO title exists above them at that company
+
+
+**Exclude from main analysis (track separately):**
+- `Deputy CISO`, `Assistant CISO` → `Excluded_Deputy`
+- `Interim CISO`, `Acting CISO` → `Excluded_Interim`
+- Pure IT roles (`CIO`, `CTO`, `CITO`) unless security responsibility is explicit → `Excluded_Other`
+
+
+**`title_normalized` values:** `CISO`, `CSO`, `VP_Security`, `Excluded_Deputy`, `Excluded_Interim`, `Excluded_Other`
+
+
+Store raw title in `title_raw` always.
+
+
+---
+
+
+## DATE HANDLING RULES
+
+
+- LinkedIn frequently provides year only, no month
+- When month is missing: impute `month = 6` (June), set `imputed_start_month = True` or `imputed_end_month = True`
+- When both start and end year are same and no months available: `duration = 6 months`, set `imputed_duration = True`
+- Never impute a duration longer than what the data supports
+- `scrape_date` is recorded per individual profile, used as censoring date for current roles
+
+
+**Duration calculation:**
+```python
+duration_months = (end_year * 12 + end_month) - (start_year * 12 + start_month)
+```
+
+
+---
+
+
+## EPISODE SCHEMA
+
+
+Full schema for `tenure_episodes.csv`:
+
+
+| Column | Type | Notes |
+|---|---|---|
+| `episode_id` | UUID | Generated |
+| `profile_id` | string | SHA256 of LinkedIn URL, first 12 chars |
+| `profile_url` | string | Original URL |
+| `company_name` | string | Raw from LinkedIn |
+| `company_name_clean` | string | Lowercased, stripped of Inc/LLC/Corp |
+| `title_raw` | string | Exact LinkedIn title |
+| `title_normalized` | string | See title normalization rules |
+| `start_year` | int | |
+| `start_month` | int | 1–12; 6 if imputed |
+| `end_year` | int | Null if current role |
+| `end_month` | int | Null if current role; 6 if imputed |
+| `duration_months` | int | Null if censored |
+| `duration_months_to_scrape_date` | int | Always populated, used for censored rows in KM |
+| `is_censored` | bool | True = current role, ongoing |
+| `scrape_date` | date | Per-profile scrape timestamp |
+| `imputed_start_month` | bool | |
+| `imputed_end_month` | bool | |
+| `imputed_duration` | bool | |
+| `episode_start_era` | string | Pre-COVID / COVID / Post-COVID |
+| `company_size_tier` | string | From input CSV — DESCRIPTIVE ONLY |
+| `industry_sector` | string | From input CSV — DESCRIPTIVE ONLY |
+| `industry_normalized` | string | Mapped in Phase 4.5 — DESCRIPTIVE ONLY |
+| `profile_region` | string | From input CSV — DESCRIPTIVE ONLY |
+| `contributor_episode_count` | int | Episodes per profile_id |
+| `size_tier_usable` | bool | True only if start_year >= 2021 and duration < 36mo |
+| `qa_flags` | string | Pipe-separated flag list from Phase 4 |
+
+
+---
+
+
+## ANALYSES TO PRODUCE
+
+
+### Analysis 1 — Overall KM Curve (headline figure)
+- KM with clustered SE by `profile_id`
+- Report median tenure in months + 95% CI
+- Plot with confidence bands, median line annotated
+- Output: `output/figures/km_overall.png` (300 DPI)
+
+
+### Analysis 2 — Era Comparison (core finding)
+- Separate KM curves for Pre-COVID / COVID / Post-COVID on one plot
+- Log-rank test for statistical significance; report p-value on chart
+- Three curves in brand colors with confidence bands
+- Output: `output/figures/km_by_era.png`
+
+
+### Analysis 3 — Hazard Rate
+- Nelson-Aalen fitter, smoothed with 3-month rolling average
+- Identify and annotate peak hazard month
+- Save: output/figures/hazard_rate.png
+
+
+### Hazard Curve Interpretation — Annotate Based on Actual Shape
+
+
+After fitting the Nelson-Aalen estimator and computing the smoothed hazard,
+identify which of the following shapes the curve takes and annotate accordingly.
+The shape is a finding in itself and must be labeled on the chart.
+
+
+SHAPE CLASSIFICATION:
+
+
+Compute these from the smoothed hazard array:
+  - peak_month: month where smoothed hazard is highest
+  - peak_value: smoothed hazard value at peak_month
+  - early_mean: mean smoothed hazard for months 0–11
+  - late_mean: mean smoothed hazard for months peak_month+12 through end
+  - first_value: smoothed hazard at month 1
+  - last_value: smoothed hazard at final month with n >= 10 in risk set
+
+
+CLASSIFICATION RULES (evaluate in order, first match wins):
+
+
+1. HUMP: peak_month is between month 6 and month 60, AND
+         peak_value > (early_mean * 1.3), AND
+         late_mean < (peak_value * 0.7)
+   → Annotation: "Exit risk peaks at month {peak_month}, then declines.
+     CISOs who survive past month {peak_month + 12} show significantly
+     lower departure rates."
+
+
+2. DECLINING: first_value > peak_value * 0.85 AND
+              last_value < first_value * 0.6
+   → Annotation: "Exit risk is highest in the earliest months and
+     declines steadily. Role fit is determined quickly — CISOs who
+     stay past month {peak_month} tend to remain long-term."
+
+
+3. RISING: last_value > first_value * 1.4
+   → Annotation: "Exit risk increases with tenure. Longer-serving
+     CISOs become progressively more likely to depart — consistent
+     with role scope expansion and burnout accumulation over time."
+
+
+4. FLAT: (max smoothed hazard - min smoothed hazard) < (mean smoothed hazard * 0.4)
+   → Annotation: "Exit risk is broadly consistent across all tenure
+     lengths. No single danger zone dominates — CISO departures are
+     distributed across the full tenure spectrum."
+
+
+CHART ANNOTATIONS TO APPLY:
+
+
+Always annotate regardless of shape:
+  - Vertical dashed line at peak_month in hitchMedTeal (#3B8A7F)
+  - Filled circle at peak point
+  - Text label: "Peak: Month {peak_month}"
+  - Area fill under the smoothed curve in hitchDarkTeal at 6% opacity
+    (cumulative hazard accumulation — visually shows where risk concentrates)
+
+
+Add shape-specific annotation:
+  - Text box in upper-right of chart area containing the shape annotation
+    sentence from above
+  - Font size 11px, hitchBlueGray color, max-width 200px, italic
+
+
+LOW RISK THRESHOLD:
+  After the peak, find the first month where smoothed hazard drops below
+  50% of peak_value and stays below for at least 3 consecutive months.
+  Call this low_risk_month.
+  Add a second vertical dashed line at low_risk_month in hitchLightGray.
+  Label: "Risk subsides: Month {low_risk_month}"
+
+
+  If no such month exists (hazard never drops to 50% of peak):
+  Do not draw the second line. Note in chart caption:
+  "Hazard does not fall below 50% of peak within the study window."
+
+
+EXPORT FOR WEB REPORT:
+  In addition to the PNG, export output/tables/hazard_data.csv with columns:
+    time_months | hazard_rate | hazard_smoothed | is_peak | is_low_risk_threshold
+  
+  is_peak = True for the single row where hazard_smoothed is maximum
+  is_low_risk_threshold = True for the single row identified as low_risk_month
+  
+  These boolean flags are read by the Next.js HazardChart component to
+  position annotations without hardcoding month values.
+
+
+CAPTION (write dynamically, substituting actual values):
+  "Smoothed exit hazard rate across {n_completed} completed CISO episodes.
+   Nelson-Aalen estimator with 3-month rolling average. Peak hazard at
+   month {peak_month} ({peak_value:.1%} monthly exit rate among survivors).
+   [{Shape classification sentence from above}]"
+
+
+
+
+### Analysis 4 — Cohort Trend (the 8-year time series)
+- Group COMPLETED episodes only by `start_year` (2017–2024)
+- Plot as dot-and-whisker chart (median + 95% CI per year) — NOT a line chart
+- Reason: post-2022 cohorts have few completed episodes; a line implies continuity that doesn't exist in thin data
+- Add shaded region for COVID era
+- Annotate each point with n= completed episodes
+- If a year has fewer than 30 completed episodes, display point with dashed border and footnote it as low-confidence
+- Output: `output/figures/cohort_trend.png`
+
+
+### Analysis 5 — Sample Composition Tables (not KM)
+- Size tier distribution (profile level)
+- Industry distribution (profile level, normalized)
+- Region distribution (profile level)
+- Output: `output/tables/sample_composition_summary.csv`
+
+
+### Summary Table
+- Output: `output/tables/key_findings.csv`
+- Rows: overall median, median by era (×3), sample sizes per group, log-rank p-value, peak hazard month
+
+
+---
+
+
+## CHART DESIGN STANDARDS
+
+
+All figures:
+- White background, 300 DPI
+- Minimal gridlines, no 3D effects, no chart junk
+- Every chart includes: title, subtitle with `n=` sample size, axis labels, source line
+
+
+**Brand colors:**
+| Role | Name | Hex |
+|---|---|---|
+| Primary / main KM line / backgrounds | Dark Teal | `#0D2426` |
+| Era line 2 / secondary | Teal | `#235857` |
+| Era line 3 / tertiary | Medium Teal | `#3B8A7F` |
+| Confidence bands (40% opacity) | Light Warm Gray | `#D3D9D4` |
+| Gridlines / muted elements | Blue Gray | `#6D8B8C` |
+
+
+Source line format: `Source: Hitch Partners CISO Tenure Study, 2025`
+
+
+---
+
+
+## QA FLAG REFERENCE
+
+
+| Flag | Condition | Action |
+|---|---|---|
+| `DURATION_UNDER_3MO` | duration < 3 months | Likely data error — review |
+| `DURATION_OVER_120MO` | duration > 120 months | Verify profile is current |
+| `DURATION_IMPUTED` | Any imputed date | Disclose in reporting |
+| `START_BEFORE_2000` | start_year < 2000 | Exclude from era analysis |
+| `FUTURE_END_DATE` | end_year > current year | Data error — fix or exclude |
+| `END_BEFORE_START` | end < start | Data error — must fix or exclude |
+| `TITLE_AMBIGUOUS` | VP_Security title | Human confirm: top security executive? |
+| `TITLE_INTERIM` | "interim" or "acting" in title | Include with note |
+| `SINGLE_MONTH_TENURE` | start = end month | Verify — likely data error |
+| `OVERLAPPING_EPISODES` | Two CISO episodes overlap | Profile-level error — resolve |
+| `NO_END_DATE_OLD_ROLE` | is_censored=True and start_year < 2020 | Verify profile is current |
+
+
+Target: manual QA on all flagged rows before Phase 5. Budget 2–3 hours.
+
+
+---
+
+
+## SAMPLE SIZE CHECKPOINTS
+
+
+Run these checks after scraping and after QA. If thresholds not met, expand sample before proceeding.
+
+
+| Checkpoint | Minimum | Target |
+|---|---|---|
+| Valid CISO episodes (post-filtering) | 1,500 | 2,000+ |
+| Completed episodes (non-censored) | 400 | 800+ |
+| Completed episodes per era | 100 | 200+ |
+| Profiles contributing 2+ episodes | 400 | 600+ |
+
+
+Print these counts in the Phase 3 ETL summary. If any minimum is not met, print a warning in red and halt before Phase 5.
+
+
+---
+
+
+## EXECUTION SEQUENCE
+
+
+| Phase | Script | Key Input | Key Output | Human Gate |
+|---|---|---|---|---|
+| 1 | `01_validate_input.py` | `profiles.csv` | `validation_report.txt` | Fix errors before proceeding |
+| 2 | `02_apify_scraper.py` | `profiles.csv` | `all_profiles_raw.json` | Review manifest; rerun failed profiles |
+| 3 | `03_etl_normalize.py` | `all_profiles_raw.json` | `tenure_episodes.csv` | Check sample size thresholds |
+| 4 | `04_qa_flags.py` | `tenure_episodes.csv` | `flagged_for_review.csv` | **Manual QA — resolve all flags** |
+| 4.5 | `04b_covariate_handling.py` | `tenure_episodes_clean.csv` | composition tables + guards | Review composition tables |
+| 5 | `05_survival_analysis.py` | `tenure_episodes_clean.csv` | figures + tables | Review all outputs |
+| 6 | `06_export_figures.py` | figures | final 300 DPI PNGs | Design polish pass |
+
+
+**Critical handoff:** After Phase 4 manual QA, save resolved file as `data/final/tenure_episodes_clean.csv`. This is the input to all downstream phases.
+
+
+---
+
+
+## INPUT CSV TEMPLATE
+
+
+```
+profile_url,company_size_tier,industry_sector,profile_region
+https://www.linkedin.com/in/example-profile,Enterprise,Financial Services,West
+```
+
+
+**Required:** `profile_url`, `company_size_tier`, `industry_sector`
+**Optional:** `profile_region` (current known location — descriptive only)
+
+
+Valid `company_size_tier`: `SMB`, `Mid-Market`, `Enterprise`, `Large-Enterprise`
+Valid `profile_region`: `Northeast`, `Southeast`, `Midwest`, `Southwest`, `West`, `International`
+
+
+---
+
+
+## ENVIRONMENT
+
+
+```bash
+export APIFY_API_TOKEN="your_token_here"
+```
+
+
+Never hardcode the token. Never commit `.env` to git.
+
+
+Apify actor ID: `2SyF0bVxmgGr8IVCZ` — verify this in your Apify console before running; actor IDs can change.
+
+
+---
+
+
+## METHODOLOGY DISCLOSURES (exact language)
+
+
+Use these verbatim in the methodology note and report footnotes:
+
+
+**On sample:**
+*"Profiles were drawn from Hitch Partners' proprietary database of North American security leaders, including passive candidates with no active interest in career transition. Selection was based on data completeness. Profiles are professionally visible CISOs; individuals with no public professional footprint may be underrepresented."*
+
+
+**On covariates:**
+*"Company size, industry, and geographic region are reported for sample composition purposes only. Because these attributes can change materially over an 8-year study window through acquisitions, growth, and relocation, they are not used as stratification variables in survival analysis."*
+
+
+**On region:**
+*"LinkedIn does not provide historical location data for past role episodes, making episode-level geographic assignment unreliable across an 8-year study window."*
+
+
+**On censoring:**
+*"Ongoing roles are treated as right-censored observations and included in survival analysis using the Kaplan-Meier estimator. Censoring date is the individual profile scrape date."*
+
+
+**On within-person correlation:**
+*"Multiple role episodes from the same individual are not statistically independent. All survival models cluster standard errors by individual to produce valid confidence intervals."*
+
+
+**On date imputation:**
+*"When LinkedIn provides year of employment without month, start and end months are imputed as June. Affected episodes are flagged and this imputation is disclosed in all reporting."*
+
+
+---
+
+
+## FILES THIS PROJECT PRODUCES
+
+
+```
+output/
+├── figures/
+│   ├── km_overall.png
+│   ├── km_by_era.png
+│   ├── hazard_rate.png
+│   └── cohort_trend.png
+├── tables/
+│   ├── key_findings.csv
+│   ├── stratified_medians.csv
+│   ├── sample_composition_summary.csv
+│   ├── size_tier_composition.csv
+│   ├── industry_composition.csv
+│   └── region_composition.csv
+methodology/
+└── methodology_note.md
+```
+
+
+---
+
+
+*CLAUDE.md v1.0 | Hitch Partners CISO Tenure Study | Authoritative project reference*
+*Supersedes all prior prompt package versions*

@@ -1,0 +1,2243 @@
+﻿CISO Tenure Study — Claude Code Prompt Series
+Hitch Partners | People Analytics Research
+
+
+Paste each prompt in sequence. Do not move to the next prompt until the current one completes cleanly and you have reviewed the output. Human gates are marked explicitly.
+
+
+________________
+
+
+BEFORE YOU START
+Place CLAUDE.md in the root of your project directory before running any prompt. Claude Code will use it as the authoritative project reference throughout. Every prompt below assumes it is present.
+
+
+Place your profiles.csv in data/input/ before running Prompt 2.
+
+
+________________
+
+
+
+
+________________
+
+
+PROMPT 1 — Project Scaffold + Dependencies
+Read CLAUDE.md in full before writing any code.
+
+
+Create the following project structure:
+
+
+ciso-tenure-study/
+
+
+├── CLAUDE.md                  (already exists — do not modify)
+
+
+├── .env                       (create with placeholder — never commit)
+
+
+├── .gitignore                 (include .env, __pycache__, *.pyc, data/raw/, data/final/)
+
+
+├── requirements.txt
+
+
+├── data/
+
+
+│   ├── input/                 (profiles.csv goes here)
+
+
+│   ├── raw/                   (Apify output — gitignored)
+
+
+│   ├── processed/
+
+
+│   ├── qa/
+
+
+│   └── final/                 (gitignored)
+
+
+├── scripts/
+
+
+│   └── (empty — scripts added in later prompts)
+
+
+├── output/
+
+
+│   ├── figures/
+
+
+│   └── tables/
+
+
+└── methodology/
+
+
+Create requirements.txt with pinned versions:
+
+
+apify-client>=1.6.0
+
+
+pandas>=2.0.0
+
+
+numpy>=1.24.0
+
+
+lifelines>=0.27.0
+
+
+matplotlib>=3.7.0
+
+
+seaborn>=0.12.0
+
+
+openpyxl>=3.1.0
+
+
+python-dateutil>=2.8.0
+
+
+tqdm>=4.65.0
+
+
+python-dotenv>=1.0.0
+
+
+Create .env with:
+
+
+APIFY_API_TOKEN=your_token_here
+
+
+Create .gitignore appropriately.
+
+
+Then run:
+
+
+pip install -r requirements.txt
+
+
+Confirm all packages installed successfully. Print the installed version of lifelines specifically — we need to verify it is 0.27+.
+
+
+Do not create any scripts yet. Scaffold only.
+
+
+________________
+
+
+
+
+→ HUMAN GATE: Confirm all packages installed. Fix any version conflicts before proceeding.
+
+
+________________
+
+
+
+
+________________
+
+
+PROMPT 2 — Input Validator
+Read CLAUDE.md before starting.
+
+
+Create scripts/01_validate_input.py.
+
+
+This script validates data/input/profiles.csv before any scraping begins.
+
+
+VALIDATION RULES:
+
+
+Required columns: profile_url, company_size_tier, industry_sector
+
+
+Optional column: profile_region
+
+
+For profile_url:
+
+
+- Must match pattern: linkedin.com/in/ (with or without https://www.)
+
+
+- Flag duplicates — report count and list them
+
+
+- Report total rows
+
+
+For company_size_tier:
+
+
+- Valid values only: SMB, Mid-Market, Enterprise, Large-Enterprise
+
+
+- Report distribution (count + %) for each value
+
+
+- Flag any invalid values as CRITICAL errors
+
+
+For industry_sector:
+
+
+- Free text — no validation on values
+
+
+- Report missing count only
+
+
+For profile_region (if column exists):
+
+
+- Valid values: Northeast, Southeast, Midwest, Southwest, West, International
+
+
+- Report distribution
+
+
+- Flag invalid values as warnings (not critical — column is optional)
+
+
+OUTPUT:
+
+
+Write data/input/validation_report.txt with:
+
+
+- Timestamp
+
+
+- Total rows
+
+
+- Duplicate URL list (if any)
+
+
+- Column-by-column summary
+
+
+- List of CRITICAL errors (halt-worthy)
+
+
+- List of warnings (proceed with caution)
+
+
+- Final status: PASS / PASS WITH WARNINGS / FAIL
+
+
+BEHAVIOR:
+
+
+- If CRITICAL errors exist: print them in red, write report, exit with code 1
+
+
+- If warnings only: print them in yellow, write report, continue
+
+
+- If clean: print summary in green, write report, exit with code 0
+
+
+After creating the script, run it against data/input/profiles.csv and show me the full output.
+
+
+________________
+
+
+
+
+→ HUMAN GATE: Review validation_report.txt. Fix any CRITICAL errors in your CSV before proceeding. Warnings are acceptable — note them for the methodology disclosure.
+
+
+________________
+
+
+
+
+________________
+
+
+PROMPT 3 — Apify Scraper
+Read CLAUDE.md before starting.
+
+
+Create scripts/02_apify_scraper.py.
+
+
+This script scrapes full LinkedIn work history for every profile in data/input/profiles.csv using the Apify LinkedIn Profile Scraper.
+
+
+SETUP:
+
+
+- Load APIFY_API_TOKEN from .env using python-dotenv — never hardcode
+
+
+- Verify token is present before starting — exit with clear error if missing
+
+
+- Confirm Apify actor ID with me before running: use 2SyF0bVxmgGr8IVCZ as default but print it prominently so I can verify
+
+
+SCRAPING LOGIC:
+
+
+- Batch profiles in groups of 50
+
+
+- 2-second delay between batches
+
+
+- For each profile, scrape the FULL work history — not just current role
+
+
+- Retry failed profiles up to 3 times with exponential backoff (2s, 4s, 8s)
+
+
+- If Apify returns a rate limit error (429), pause 60 seconds and retry the batch
+
+
+Apify actor input per batch:
+
+
+{
+
+
+  "profileUrls": [...up to 50 LinkedIn URLs...],
+
+
+  "proxy": { "useApifyProxy": true }
+
+
+}
+
+
+OUTPUT:
+
+
+- Save raw JSON per batch: data/raw/batch_001.json, batch_002.json, etc.
+
+
+- After all batches complete, merge all into data/raw/all_profiles_raw.json
+
+
+- Write data/raw/scrape_manifest.csv with columns:
+
+
+  profile_url, batch_number, status, scraped_at, episodes_found, error_message
+
+
+  status values: success, no_history, failed, retry_success
+
+
+PROGRESS:
+
+
+- tqdm progress bar per batch
+
+
+- Print running totals every 10 batches: succeeded / failed / retried
+
+
+END SUMMARY (print to console):
+
+
+- Total profiles attempted
+
+
+- Succeeded (including retry_success)
+
+
+- Failed (final — after all retries)
+
+
+- No history returned
+
+
+- Total raw episodes found across all profiles
+
+
+- Scrape duration in minutes
+
+
+ERROR HANDLING:
+
+
+- Never crash on a single profile failure — log and continue
+
+
+- If an entire batch fails after retries, log all profiles in that batch as failed and continue
+
+
+Do not run the scraper yet. Show me the script and the exact command to run it, including how to set the API token. Wait for my confirmation before executing.
+
+
+________________
+
+
+
+
+→ HUMAN GATE: Review the script. Verify the Apify actor ID in your console. Confirm token is set. Then tell Claude Code to run it. Monitor the manifest during the run — if failure rate exceeds 10%, pause and investigate before continuing.
+
+
+________________
+
+
+
+
+________________
+
+
+PROMPT 4 — ETL & Normalization
+Read CLAUDE.md before starting. Pay particular attention to:
+
+
+- UNIT OF ANALYSIS section
+
+
+- CENSORING section
+
+
+- TITLE NORMALIZATION RULES
+
+
+- DATE HANDLING RULES
+
+
+- EPISODE SCHEMA
+
+
+Create scripts/03_etl_normalize.py.
+
+
+Input: data/raw/all_profiles_raw.json
+
+
+Output: data/processed/tenure_episodes.csv
+
+
+STEP 1 — EXTRACT
+
+
+For each profile in the raw JSON, extract every work history entry.
+
+
+One profile → one or more episode rows.
+
+
+Preserve the profile_url as the join key to the input CSV metadata.
+
+
+STEP 2 — TITLE NORMALIZATION
+
+
+Apply rules exactly as specified in CLAUDE.md.
+
+
+Include (set title_normalized):
+
+
+- CISO: title contains "CISO" or "Chief Information Security Officer"
+
+
+- CSO: title contains "Chief Security Officer" or "CSO" (without CISO above)
+
+
+- VP_Security: title contains "security" AND ("VP" or "SVP" or "EVP" or "Vice President"), only if no CISO-level title at same company
+
+
+Exclude (track separately, do not include in main dataset):
+
+
+- Excluded_Deputy: title contains "Deputy CISO" or "Assistant CISO"
+
+
+- Excluded_Interim: title contains "Interim" or "Acting" (case-insensitive)
+
+
+- Excluded_Other: CIO, CTO, CITO without explicit security responsibility
+
+
+Store excluded episodes in data/processed/tenure_episodes_excluded.csv with exclusion_reason column.
+
+
+STEP 3 — DATE PARSING
+
+
+For each episode:
+
+
+- Parse start and end dates from LinkedIn format
+
+
+- Extract start_year, start_month, end_year, end_month
+
+
+- If month missing: impute month=6, set imputed_start_month=True or imputed_end_month=True
+
+
+- If end date is null: is_censored=True, end_year=null, end_month=null
+
+
+- Record scrape_date per individual profile from scrape_manifest.csv (not batch date)
+
+
+STEP 4 — DURATION CALCULATION
+
+
+For completed episodes:
+
+
+  duration_months = (end_year * 12 + end_month) - (start_year * 12 + start_month)
+
+
+  If same year and both months imputed: duration_months = 6, imputed_duration=True
+
+
+For censored episodes:
+
+
+  duration_months = null
+
+
+  duration_months_to_scrape_date = (scrape_year * 12 + scrape_month) - (start_year * 12 + start_month)
+
+
+Always populate duration_months_to_scrape_date for every row — both censored and completed. This is used as the KM duration input.
+
+
+STEP 5 — ERA CLASSIFICATION
+
+
+Based on start_year + start_month:
+
+
+- Pre-COVID: before March 2020
+
+
+- COVID: March 2020 through December 2021
+
+
+- Post-COVID: January 2022 or later
+
+
+STEP 6 — JOIN METADATA
+
+
+Join company_size_tier, industry_sector, profile_region from data/input/profiles.csv via profile_url.
+
+
+STEP 7 — PROFILE ID + EPISODE ID
+
+
+profile_id = SHA256(profile_url)[:12]
+
+
+episode_id = UUID4 (generated fresh each run)
+
+
+contributor_episode_count = count of included episodes per profile_id
+
+
+STEP 8 — OUTPUT
+
+
+Write data/processed/tenure_episodes.csv with full schema from CLAUDE.md.
+
+
+Write data/processed/tenure_episodes_excluded.csv for excluded rows.
+
+
+STEP 9 — SAMPLE SIZE CHECKPOINTS
+
+
+After writing output, run these checks and print results:
+
+
+Checkpoint                              | Minimum | Your Count | Status
+
+
+Valid CISO episodes (post-filtering)    | 1,500   | ?          | PASS/FAIL
+
+
+Completed episodes (non-censored)       | 400     | ?          | PASS/FAIL
+
+
+Completed episodes — Pre-COVID era      | 100     | ?          | PASS/FAIL
+
+
+Completed episodes — COVID era          | 100     | ?          | PASS/FAIL
+
+
+Completed episodes — Post-COVID era     | 100     | ?          | PASS/FAIL
+
+
+Profiles contributing 2+ episodes      | 400     | ?          | PASS/FAIL
+
+
+If ANY checkpoint shows FAIL: print warning in red. Do not halt — but flag that expansion of the sample may be needed before publishing.
+
+
+FINAL PRINT SUMMARY:
+
+
+- Total raw episodes extracted
+
+
+- Included by title_normalized (breakdown)
+
+
+- Excluded by reason (breakdown)
+
+
+- Censored vs completed count + %
+
+
+- Era distribution (count + %)
+
+
+- Profiles contributing 1 / 2 / 3 / 4+ episodes
+
+
+- All checkpoint results
+
+
+________________
+
+
+
+
+→ HUMAN GATE: Review the summary output carefully. If any sample size checkpoint fails, stop and discuss before continuing — this is a study design issue, not a code issue. If all pass, proceed.
+
+
+________________
+
+
+
+
+________________
+
+
+PROMPT 5 — QA Flags
+Read CLAUDE.md QA FLAG REFERENCE section before starting.
+
+
+Create scripts/04_qa_flags.py.
+
+
+Input: data/processed/tenure_episodes.csv
+
+
+Outputs:
+
+
+  data/qa/flagged_for_review.csv
+
+
+  data/qa/qa_summary.txt
+
+
+Add a qa_flags column to each row — pipe-separated list of all flags that apply.
+
+
+A row with no flags gets qa_flags = "" (empty string, not null).
+
+
+FLAG LOGIC (apply all that match):
+
+
+DURATION_UNDER_3MO    → duration_months_to_scrape_date < 3
+
+
+DURATION_OVER_120MO   → duration_months_to_scrape_date > 120
+
+
+DURATION_IMPUTED      → imputed_start_month=True OR imputed_end_month=True OR imputed_duration=True
+
+
+START_BEFORE_2000     → start_year < 2000
+
+
+FUTURE_END_DATE       → end_year > 2025 (current year)
+
+
+END_BEFORE_START      → end date is earlier than start date
+
+
+TITLE_AMBIGUOUS       → title_normalized = "VP_Security"
+
+
+TITLE_INTERIM         → title_raw contains "interim" or "acting" (case-insensitive)
+
+
+SINGLE_MONTH_TENURE   → start_year=end_year AND start_month=end_month
+
+
+OVERLAPPING_EPISODES  → this profile_id has two included episodes with overlapping date ranges
+
+
+NO_END_DATE_OLD_ROLE  → is_censored=True AND start_year < 2020
+
+
+OUTPUT — flagged_for_review.csv:
+
+
+All rows where qa_flags is not empty.
+
+
+Include all episode columns plus qa_flags.
+
+
+Sort by: number of flags descending, then profile_id.
+
+
+OUTPUT — qa_summary.txt:
+
+
+For each flag type:
+
+
+  - Count of episodes affected
+
+
+  - % of total episode dataset
+
+
+  - Recommended action (from CLAUDE.md QA FLAG REFERENCE)
+
+
+Footer:
+
+
+  "Total flagged episodes: X of Y ({Z}%)
+
+
+   Estimated manual review time at 2 min/row: N minutes
+
+
+   
+
+
+   Next step: Open data/qa/flagged_for_review.csv, resolve each row,
+
+
+   then save the cleaned dataset as data/final/tenure_episodes_clean.csv"
+
+
+Also write data/processed/tenure_episodes_with_flags.csv — the full dataset
+
+
+including qa_flags column for all rows (flagged and unflagged).
+
+
+This is for reference during manual QA.
+
+
+________________
+
+
+
+
+→ HUMAN GATE — MANUAL QA (allow 2–3 hours)
+
+
+Open data/qa/flagged_for_review.csv. For each flagged row, decide:
+
+
+* Keep as-is — flag is informational (e.g., DURATION_IMPUTED), no action needed
+* Fix — correct the date or title error if you can verify it externally
+* Exclude — remove the row if it cannot be resolved
+
+
+When complete, save the resolved full dataset as data/final/tenure_episodes_clean.csv.
+
+
+This file is the input to all remaining phases. Its quality determines the quality of the study.
+
+
+________________
+
+
+
+
+________________
+
+
+PROMPT 6 — Covariate Handling + Analysis Guards
+Read CLAUDE.md — specifically COVARIATE RULES and WITHIN-PERSON CORRELATION sections.
+
+
+Create two files:
+
+
+FILE 1: scripts/analysis_guards.py
+
+
+This module is imported by all analysis scripts. It enforces statistical constraints at runtime.
+
+
+def assert_no_covariate_stratification(column_name: str):
+
+
+    """Raises ValueError if a time-varying covariate is passed to a KM fitter."""
+
+
+    protected = [
+
+
+        'company_size_tier', 'industry_sector', 'industry_normalized',
+
+
+        'profile_region', 'size_tier_usable'
+
+
+    ]
+
+
+    if column_name in protected:
+
+
+        raise ValueError(
+
+
+            f"COVARIATE GUARD: '{column_name}' is a time-varying covariate captured "
+
+
+            f"at scrape time (2025) and cannot be used as a KM stratification variable. "
+
+
+            f"See CLAUDE.md COVARIATE RULES. Use episode_start_era for temporal stratification."
+
+
+        )
+
+
+def assert_clustering_enabled(fit_kwargs: dict):
+
+
+    """Raises ValueError if cluster_col is missing from a survival model call."""
+
+
+    if fit_kwargs.get('cluster_col') != 'profile_id':
+
+
+        raise ValueError(
+
+
+            "CLUSTERING GUARD: All survival models must cluster standard errors "
+
+
+            "by profile_id to account for within-person correlation across episodes. "
+
+
+            "Add cluster_col='profile_id' to your fitter call. See CLAUDE.md "
+
+
+            "WITHIN-PERSON CORRELATION section."
+
+
+        )
+
+
+def assert_sufficient_completed_episodes(df, group_col=None, group_val=None, minimum=30):
+
+
+    """Warns if a subgroup has fewer than minimum completed episodes."""
+
+
+    subset = df[df['is_censored'] == False]
+
+
+    if group_col:
+
+
+        subset = subset[subset[group_col] == group_val]
+
+
+    n = len(subset)
+
+
+    if n < minimum:
+
+
+        import warnings
+
+
+        warnings.warn(
+
+
+            f"LOW POWER WARNING: Only {n} completed episodes "
+
+
+            f"{'overall' if not group_col else f'for {group_col}={group_val}'}. "
+
+
+            f"Minimum recommended: {minimum}. KM curve will have wide confidence intervals. "
+
+
+            f"This group should be footnoted as low-confidence in the report."
+
+
+        )
+
+
+    return n
+
+
+
+
+FILE 2: scripts/04b_covariate_handling.py
+
+
+Input: data/final/tenure_episodes_clean.csv
+
+
+COMPANY SIZE — add size_tier_usable column:
+
+
+True only if: start_year >= 2021 AND duration_months_to_scrape_date < 36
+
+
+False for all other rows.
+
+
+Rationale: captures only episodes recent and short enough that size tier is likely accurate.
+
+
+Write size_tier_usable back into data/final/tenure_episodes_clean.csv as a new column.
+
+
+INDUSTRY — normalize free text to standard categories:
+
+
+Mapping (keyword-based, case-insensitive):
+
+
+  Financial Services: bank, financ, insur, fintech, asset, capital, invest, wealth
+
+
+  Healthcare:         health, hospital, pharma, medic, biotech, clinic
+
+
+  Technology:         tech, software, saas, cloud, cyber, data, digital, platform
+
+
+  Retail & Consumer:  retail, consumer, ecommerce, brand, apparel, food, beverage
+
+
+  Manufacturing:      manufactur, industrial, aerospace, defense, automotive, energy, util
+
+
+  Government:         government, federal, state, municipal, public sector, defense, military
+
+
+  Professional Svcs:  consult, legal, accounting, staffing, advisory, audit
+
+
+  Other:              anything unmatched
+
+
+Store in industry_normalized column.
+
+
+Store original in industry_sector (unchanged).
+
+
+Write industry_normalized into data/final/tenure_episodes_clean.csv.
+
+
+OUTPUT TABLES — write all to output/tables/:
+
+
+size_tier_composition.csv:
+
+
+  size_tier | profile_count | profile_pct | usable_episode_count | usable_episode_pct
+
+
+industry_composition.csv:
+
+
+  industry_normalized | profile_count | profile_pct
+
+
+  (sorted descending by profile_count)
+
+
+region_composition.csv:
+
+
+  profile_region | profile_count | profile_pct
+
+
+  (null profile_region → "Unknown")
+
+
+sample_composition_summary.csv:
+
+
+  section_label | category | n | pct
+
+
+  (three sections: Company Size, Industry, Region)
+
+
+Write plain-text disclaimer files:
+
+
+  output/tables/size_tier_note.txt
+
+
+  output/tables/industry_note.txt
+
+
+  output/tables/region_note.txt
+
+
+Use exact disclosure language from CLAUDE.md METHODOLOGY DISCLOSURES section.
+
+
+FINAL PRINT:
+
+
+"Covariate handling complete.
+
+
+ Dataset updated: data/final/tenure_episodes_clean.csv
+
+
+ 
+
+
+ Size tier — usable episodes (post-2020, <36mo): X of Y ({Z}%)
+
+
+ Industry normalization: A episodes mapped, B assigned to Other
+
+
+ 
+
+
+ Composition tables written to output/tables/
+
+
+ Analysis guards written to scripts/analysis_guards.py
+
+
+ 
+
+
+ Ready for Phase 7: Survival Analysis"
+
+
+________________
+
+
+
+
+→ HUMAN GATE: Review the three composition tables. They become the sample description section of your report. Verify distributions look reasonable — flag anything that seems off before proceeding.
+
+
+________________
+
+
+
+
+________________
+
+
+PROMPT 7 — Survival Analysis
+Read CLAUDE.md — specifically ANALYSES TO PRODUCE, CENSORING, WITHIN-PERSON CORRELATION,
+
+
+and CHART DESIGN STANDARDS sections.
+
+
+Create scripts/05_survival_analysis.py.
+
+
+Input: data/final/tenure_episodes_clean.csv
+
+
+Import analysis_guards from scripts/analysis_guards.py
+
+
+SETUP:
+
+
+Load data. Create the KM duration column:
+
+
+  km_duration = duration_months if not is_censored else duration_months_to_scrape_date
+
+
+  event_observed = ~is_censored  (True = exited, False = censored)
+
+
+Brand colors (use exactly):
+
+
+  COLOR_PRIMARY   = '#0D2426'  # Dark Teal — main KM line
+
+
+  COLOR_ERA2      = '#235857'  # Teal — COVID era line
+
+
+  COLOR_ERA3      = '#3B8A7F'  # Medium Teal — Post-COVID era line
+
+
+  COLOR_CI_BAND   = '#D3D9D4'  # Light Warm Gray — confidence bands (alpha=0.4)
+
+
+  COLOR_GRID      = '#6D8B8C'  # Blue Gray — gridlines
+
+
+Figure style function — apply to every chart:
+
+
+  - White background
+
+
+  - Gridlines: COLOR_GRID, alpha=0.3, linewidth=0.5, axis='y' only
+
+
+  - Remove top and right spines
+
+
+  - Source text bottom-right: "Source: Hitch Partners CISO Tenure Study, 2025"
+
+
+    (fontsize=7, color='#6D8B8C', style='italic')
+
+
+
+
+--- ANALYSIS 1: OVERALL KM CURVE ---
+
+
+Call: assert_clustering_enabled({'cluster_col': 'profile_id'})
+
+
+Use CoxPHFitter to get the clustered median and CI:
+
+
+  from lifelines import CoxPHFitter
+
+
+  cph = CoxPHFitter()
+
+
+  cph.fit(df[['km_duration','event_observed','profile_id']],
+
+
+          duration_col='km_duration',
+
+
+          event_col='event_observed',
+
+
+          cluster_col='profile_id')
+
+
+Also fit KaplanMeierFitter for the visual curve (KM is visual; Cox is the reported statistic):
+
+
+  from lifelines import KaplanMeierFitter
+
+
+  kmf = KaplanMeierFitter()
+
+
+  kmf.fit(df['km_duration'], event_observed=df['event_observed'], label='All CISOs')
+
+
+Plot:
+
+
+  - KM survival curve in COLOR_PRIMARY, linewidth=2
+
+
+  - 95% CI band in COLOR_CI_BAND
+
+
+  - Horizontal dashed line at S(t)=0.5 in COLOR_GRID
+
+
+  - Vertical dashed line at median in COLOR_GRID
+
+
+  - Annotate median value on chart
+
+
+  - X-axis: 0 to 84 months, label "Months in Role"
+
+
+  - Y-axis: 0 to 1.0, label "Probability of Remaining in Role"
+
+
+  - Title: "CISO Tenure Survival Curve"
+
+
+  - Subtitle: f"n={total_episodes} episodes ({n_profiles} CISOs) | Median: {median:.0f} months ({median/12:.1f} years)"
+
+
+Save: output/figures/km_overall.png at 300 DPI
+
+
+
+
+--- ANALYSIS 2: ERA COMPARISON ---
+
+Before fitting each era curve, call:
+  n = assert_sufficient_completed_episodes(df, 'episode_start_era', era, minimum=100)
+
+The function will warn for COVID and Post-COVID — this is expected.
+Log the warning, continue fitting, and store n per era for chart annotation.
+
+After plotting each curve, add an end-of-line annotation for any era
+where n < 100: "n=[X] completed — interpret with caution"
+Use hitchBlueGray, 10px, italic, positioned at the right terminus of
+that era's curve.
+
+Call assert_no_covariate_stratification for any column before using it.
+
+
+episode_start_era is explicitly permitted — no guard needed for this column.
+
+
+For each era in ['Pre-COVID', 'COVID', 'Post-COVID']:
+
+
+  - Call assert_sufficient_completed_episodes(df, 'episode_start_era', era, minimum=30)
+
+
+  - Fit KaplanMeierFitter on era subset
+
+
+  - Plot curve on shared axes
+
+
+Colors per era:
+
+
+  Pre-COVID:   COLOR_PRIMARY (#0D2426)
+
+
+  COVID:       COLOR_ERA2    (#235857)
+
+
+  Post-COVID:  COLOR_ERA3    (#3B8A7F)
+
+
+Run log-rank test across all three groups:
+
+
+  from lifelines.statistics import multivariate_logrank_test
+
+
+  result = multivariate_logrank_test(df['km_duration'], df['episode_start_era'], df['event_observed'])
+
+
+Annotate p-value on chart (bottom-left).
+
+
+Add legend with era labels and n= completed episodes per era.
+
+
+Title: "CISO Tenure by Era"
+
+
+Subtitle: f"Pre-COVID n={n1} | COVID n={n2} | Post-COVID n={n3} | Log-rank p={p:.4f}"
+
+
+Save: output/figures/km_by_era.png at 300 DPI
+
+
+
+
+--- ANALYSIS 3: HAZARD RATE ---
+
+
+from lifelines import NelsonAalenFitter
+
+
+naf = NelsonAalenFitter()
+
+
+naf.fit(df['km_duration'], event_observed=df['event_observed'])
+
+
+Compute smoothed hazard: 3-month rolling average of the cumulative hazard derivative.
+
+
+Find peak hazard month. Annotate on chart.
+
+
+Plot:
+
+
+  - Smoothed hazard in COLOR_PRIMARY, linewidth=2
+
+
+  - Peak month annotated with vertical dashed line + label
+
+
+  - X-axis: 0 to 84 months
+
+
+  - Title: "CISO Exit Hazard Rate"
+
+
+  - Subtitle: f"Peak exit risk at month {peak_month} | n={n_completed} completed episodes"
+
+
+Save: output/figures/hazard_rate.png at 300 DPI
+
+
+
+
+--- ANALYSIS 4: COHORT TREND ---
+
+
+Use COMPLETED episodes only (is_censored=False).
+
+
+Group by start_year for years 2017 through 2024.
+
+
+For each year:
+
+
+  - n = count of completed episodes
+
+
+  - median = median duration_months for that year
+
+
+  - ci_low, ci_high = 95% bootstrap CI (1000 iterations, resample by profile_id)
+
+
+  - low_confidence = True if n < 30
+
+
+Plot as dot-and-whisker (NOT a line chart):
+
+
+  - Each year: central dot at median, whiskers at CI
+
+
+  - Low-confidence years (n<30): dashed circle border on dot, lighter color
+
+
+  - Annotate each dot with n= value above the point
+
+
+  - Shade COVID era (March 2020–December 2021) with COLOR_CI_BAND fill, labeled
+
+
+  - X-axis: 2017–2024 (integer years)
+
+
+  - Y-axis: months
+
+
+  - Title: "CISO Tenure by Cohort Start Year"
+
+
+  - Subtitle: "Completed episodes only | Dashed points = n<30, low confidence"
+
+
+  - Footnote below chart: list years with n<30 explicitly
+
+
+Save: output/figures/cohort_trend.png at 300 DPI
+
+
+
+
+--- SUMMARY TABLE ---
+
+
+Write output/tables/key_findings.csv with these exact rows:
+
+
+metric                    | value       | unit         | n_episodes | n_completed | notes
+
+
+Overall Median Tenure     | {X}         | months       | ...        | ...         | Cox clustered SE
+
+
+Overall Median Tenure     | {X/12:.1f}  | years        | ...        | ...         | Cox clustered SE
+
+
+Pre-COVID Median          | {X}         | months       | ...        | ...         | KM estimate
+
+
+COVID Median              | {X}         | months       | ...        | ...         | KM estimate
+
+
+Post-COVID Median         | {X}         | months       | ...        | ...         | KM estimate
+
+
+Log-rank p-value          | {p}         | —            | —          | —           | Era comparison
+
+
+Peak Hazard Month         | {month}     | months       | —          | ...         | Nelson-Aalen smoothed
+
+
+Censored Episodes         | {n}         | count        | ...        | —           | Ongoing roles at scrape
+
+
+Censoring Rate            | {pct}       | %            | ...        | —           |
+
+
+Print all key findings to console after writing the file.
+
+
+________________
+
+
+
+
+→ HUMAN GATE: Review all four figures and the key_findings.csv. Check that:
+
+
+* Confidence intervals are reasonably tight (wide CIs = underpowered subgroup)
+* Era differences are in a logical direction
+* Cohort trend years with n<30 are clearly footnoted
+* Peak hazard month makes intuitive sense
+
+
+Flag anything unexpected before proceeding to figure export.
+
+
+________________
+
+
+
+
+________________
+
+
+PROMPT 8 — Figure Export + Methodology Note
+Read CLAUDE.md before starting.
+
+
+This is the final build phase. Two tasks.
+
+
+TASK 1: Create scripts/06_export_figures.py
+
+
+This script re-renders all figures at final export quality and confirms output integrity.
+
+
+For each figure in output/figures/:
+
+
+  - Verify file exists
+
+
+  - Verify DPI = 300
+
+
+  - Verify dimensions are reasonable (at least 8x5 inches)
+
+
+  - Print: filename | size | DPI | status
+
+
+If any figure is missing or below spec, re-run the relevant analysis block to regenerate it.
+
+
+Also produce output/figures/km_overall_print.png — same as km_overall.png but:
+
+
+  - Size: 10x6 inches (wider format for print layout)
+
+
+  - Add Hitch Partners logo placeholder text top-right: "[HITCH LOGO]" in #0D2426
+
+
+Print final manifest:
+
+
+  "Export complete. Files ready for design polish:
+
+
+   output/figures/km_overall.png          ✓
+
+
+   output/figures/km_overall_print.png    ✓
+
+
+   output/figures/km_by_era.png           ✓
+
+
+   output/figures/hazard_rate.png         ✓
+
+
+   output/figures/cohort_trend.png        ✓"
+
+
+
+
+TASK 2: Create methodology/methodology_note.md
+
+
+Write a professional methodology note (~900 words) in third person.
+
+
+Use exact disclosure language from CLAUDE.md METHODOLOGY DISCLOSURES section verbatim.
+
+
+Do not paraphrase the disclosure language — use it word for word.
+
+
+Structure:
+
+
+---
+
+
+Hitch Partners Research | Methodology Note v1.0
+
+
+Published: [DATE] | Status: Pre-Analysis Registration
+
+
+---
+
+
+1. RESEARCH OBJECTIVES
+
+
+Primary: Measure how median CISO tenure has changed across pre-COVID, COVID,
+
+
+and post-COVID periods among North American security leaders.
+
+
+Secondary: Identify the month within a tenure when CISOs are most likely to exit;
+
+
+characterize the sample by company size, industry, and geography.
+
+
+2. DATA SOURCES & SAMPLE CONSTRUCTION
+
+
+[Use exact "On sample:" disclosure from CLAUDE.md]
+
+
+- Source: LinkedIn work history via Apify scraper
+
+
+- Sample: ~1,200 LinkedIn profiles
+
+
+- Unit of analysis: individual role episodes (not persons)
+
+
+- Study window: role episodes with start dates January 2017 through scrape date
+
+
+- Expected episodes: 2,400–3,600 raw; ~1,800–2,500 after filtering
+
+
+3. INCLUSION / EXCLUSION CRITERIA
+
+
+Title inclusion: CISO, Chief Information Security Officer, Chief Security Officer, CSO,
+
+
+or VP/SVP/EVP of Security where no CISO title existed above them.
+
+
+Excluded from main analysis: Deputy CISO, Interim/Acting CISO (tracked separately),
+
+
+pure IT titles (CIO, CTO) without explicit security mandate.
+
+
+4. METRIC DEFINITIONS
+
+
+Primary metric: Median completed tenure, Kaplan-Meier estimator.
+
+
+[Use exact "On censoring:" disclosure from CLAUDE.md]
+
+
+[Use exact "On within-person correlation:" disclosure from CLAUDE.md]
+
+
+[Use exact "On date imputation:" disclosure from CLAUDE.md]
+
+
+5. ERA CLASSIFICATION
+
+
+Pre-COVID: role start before March 2020
+
+
+COVID: role start March 2020 through December 2021
+
+
+Post-COVID: role start January 2022 or later
+
+
+Rationale for COVID boundaries: WHO pandemic declaration (March 11, 2020) as start;
+
+
+widespread vaccine rollout completion (end of 2021) as end.
+
+
+6. STATISTICAL METHODS
+
+
+- Kaplan-Meier survival analysis for visual curves and era comparison (lifelines)
+
+
+- Cox Proportional Hazards model with clustered standard errors for primary median estimate
+
+
+- Log-rank test (multivariate) for era comparison significance
+
+
+- Nelson-Aalen estimator with 3-month rolling smoothing for hazard rate
+
+
+- Bootstrap confidence intervals (1,000 iterations, resampled by individual) for cohort trend
+
+
+- Primary hypothesis (era differences in median tenure) specified prior to analysis
+
+
+7. COVARIATE HANDLING
+
+
+[Use exact "On covariates:" disclosure from CLAUDE.md]
+
+
+[Use exact "On region:" disclosure from CLAUDE.md]
+
+
+8. LIMITATIONS
+
+- COVID and Post-COVID era estimates carry wider confidence intervals
+  than the pre-registered minimum due to structural underpower: the
+  COVID window spans only 22 months, and Post-COVID roles are recent
+  enough that many remain ongoing. See era statistical power note in
+  methodology appendix. This is disclosed on all affected charts.
+
+- LinkedIn data reflects only what professionals choose to disclose; early career roles may be omitted
+
+
+- [Use exact "On sample:" disclosure from CLAUDE.md]
+
+
+- Title normalization involves judgment calls documented in Section 3
+
+
+- [Use exact "On date imputation:" disclosure from CLAUDE.md]
+
+
+- Geographic analysis is not performed at the episode level: [use exact "On region:" disclosure]
+
+
+- Post-2022 cohorts contain fewer completed episodes; cohort trend estimates for 2022–2024
+
+
+  should be interpreted with caution
+
+
+9. VERSION HISTORY
+
+
+v1.0 — [DATE] — Pre-analysis registration
+
+
+---
+
+
+After writing the file, print the word count. Target is 800–1,000 words.
+
+
+________________
+
+
+
+
+# Prompt 9 — Interactive Web Report
+## Hitch Partners CISO Tenure Study
+
+
+Paste this into Claude Code after all analysis outputs from the pipeline are confirmed clean.
+
+
+---
+
+
+```
+Read CLAUDE.md before starting.
+
+
+Build a Next.js web report that renders the CISO tenure study findings from the
+analysis pipeline output files. This is a public-facing research report designed
+for media pickup — it must be production-quality, fast, and shareable.
+
+
+---
+
+
+STACK:
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- Recharts for all interactive charts
+- Deploy target: Vercel (already in project)
+
+
+Do not use any chart library other than Recharts.
+Do not use shadcn/ui or any component library — build all components from scratch.
+
+
+---
+
+
+SETUP:
+
+
+Run:
+ npx create-next-app@latest ciso-tenure-report --typescript --tailwind --app --no-src-dir
+ cd ciso-tenure-report
+ npm install recharts
+
+
+Create the following data pipeline integration:
+
+
+src/
+├── app/
+│   ├── page.tsx              (main report page)
+│   ├── layout.tsx            (root layout with metadata)
+│   └── globals.css
+├── components/
+│   ├── Nav.tsx
+│   ├── Hero.tsx
+│   ├── KeyNumbers.tsx
+│   ├── SurvivalChart.tsx     (Figure 1)
+│   ├── EraChart.tsx          (Figure 2 — era KM curves)
+│   ├── EraMedians.tsx        (era comparison summary numbers)
+│   ├── HazardChart.tsx       (Figure 3)
+│   ├── CohortChart.tsx       (Figure 4)
+│   ├── SampleComposition.tsx (Figure 5)
+│   ├── ShareBar.tsx
+│   ├── Methodology.tsx
+│   └── Footer.tsx
+└── data/
+   ├── loader.ts             (reads pipeline output files)
+   └── types.ts              (TypeScript types for all data shapes)
+
+
+---
+
+
+BRAND COLORS — use exactly, in tailwind.config.ts custom colors:
+
+
+ hitchDarkTeal:   '#0D2426'   -- primary, headlines, main chart line
+ hitchTeal:       '#235857'   -- COVID era, secondary
+ hitchMedTeal:    '#3B8A7F'   -- Post-COVID era, accent, section numbers
+ hitchLightGray:  '#D3D9D4'   -- confidence bands (opacity 0.45), grid lines
+ hitchBlueGray:   '#6D8B8C'   -- captions, axis labels, muted text
+
+
+---
+
+
+TYPOGRAPHY:
+
+
+In layout.tsx, load via next/font/google:
+ DM_Serif_Display — weights 400 — for all headlines (hero, section titles)
+ DM_Sans — weights 300, 400, 500 — for body, labels, UI
+
+
+Apply as CSS variables:
+ --font-serif: DM Serif Display
+ --font-sans: DM Sans
+
+
+---
+
+
+DATA INTEGRATION — this is critical:
+
+
+The pipeline produces these files in output/tables/ and output/figures/.
+The web report reads the CSV files directly. Do NOT hardcode any numbers.
+
+
+Create src/data/loader.ts that reads these files at build time using
+Node.js fs (getStaticProps pattern or generateStaticParams in App Router):
+
+
+FILES TO READ:
+
+
+1. output/tables/key_findings.csv
+  Schema: metric | value | unit | n_episodes | n_completed | notes
+  Used by: KeyNumbers, EraMedians, HazardChart stat tiles
+
+
+2. output/tables/km_survival_data.csv
+  Schema: time_months | survival_prob | ci_lower | ci_upper
+  NOTE: The analysis script (05_survival_analysis.py) must export this CSV.
+        Add to Phase 7 prompt: after fitting KM, export kmf.survival_function_
+        and kmf.confidence_interval_ to output/tables/km_survival_data.csv
+
+
+3. output/tables/km_era_data.csv
+  Schema: time_months | era | survival_prob | ci_lower | ci_upper
+  NOTE: Export per-era KM data from the three era fits in Phase 7.
+        One row per time_months per era.
+
+
+4. output/tables/hazard_data.csv
+  Schema: time_months | hazard_rate | hazard_smoothed
+  NOTE: Export Nelson-Aalen smoothed hazard values from Phase 7.
+
+
+5. output/tables/cohort_trend.csv
+  Schema: start_year | median_months | ci_lower | ci_upper | n_completed | low_confidence
+  NOTE: Export from Phase 7 cohort analysis.
+
+
+6. output/tables/sample_composition_summary.csv
+  Schema: section_label | category | n | pct
+  Used by: SampleComposition
+
+
+Create src/data/types.ts with TypeScript interfaces for each data shape.
+
+
+In loader.ts, parse all CSVs using the built-in csv parsing (no external library needed —
+use split/map for simple CSVs). Return typed objects. Handle missing values gracefully —
+if a file is missing, return empty array and log a warning, never crash the build.
+
+
+---
+
+
+REPORT STRUCTURE — implement in page.tsx:
+
+
+Single scrolling page. Sections in this order:
+
+
+1. <Nav />            — sticky, with anchor links + "Contact Hitch" CTA
+2. <Hero />           — eyebrow, headline, subhead, meta strip
+3. <KeyNumbers />     — 3 stat cards: median tenure, era change, peak hazard month
+4. <SurvivalChart />  — section 01: overall KM curve
+5. <EraMedians />     — 3 large numbers comparing eras (above Figure 2)
+6. <EraChart />       — section 02: era KM comparison
+7. <HazardChart />    — section 03: hazard rate with 3 stat tiles below
+8. <CohortChart />    — section 04: dot-and-whisker cohort trend
+9. <SampleComposition /> — section 05: 3-column bar charts
+10. <ShareBar />      — LinkedIn / Email / Copy link / Download PDF
+11. <Methodology />   — section 06: 4 methodology cards
+12. <Footer />        — Hitch branding + methodology note link
+
+
+---
+
+
+COMPONENT SPECS:
+
+
+NAV (Nav.tsx):
+- Sticky top, white bg, z-50
+- Left: "HITCH PARTNERS" in hitchDarkTeal, 11px, tracked uppercase
+- Center: anchor links to each section (01–06 + Methodology)
+ href="#survival" "#eras" "#hazard" "#cohort" "#sample" "#methodology"
+- Right: "Contact Hitch →" button — dark teal bg, white text, rounded-full
+- Bottom border: 1px, hitchLightGray
+- On mobile: hide center links, keep logo and CTA
+
+
+HERO (Hero.tsx):
+- Eyebrow: "CISO TENURE STUDY · NORTH AMERICA · 2025" in hitchMedTeal, with
+ a 20px line before it
+- Headline: DM Serif Display, 52px desktop / 36px mobile, hitchDarkTeal
+ Text: "How Long Does a CISO Actually Last?"
+ Italicize "Actually" in hitchTeal
+- Subhead: 17px, weight 300, muted, max-width 540px
+ Text: "Eight years of work history across 1,200 North American security leaders
+        — the most rigorous study of CISO tenure ever published."
+- Meta strip: 5 pills in a bordered row (no gap between — separated by internal borders)
+ Pills: Profiles | Episodes | Window | Method | Published
+ Values: populated from key_findings.csv n_episodes field + static text
+
+
+KEY NUMBERS (KeyNumbers.tsx):
+- 3 cards in a grid, equal width
+- Each card: left border 3px solid (color varies per card), light gray bg
+- Card 1: Median tenure — value from key_findings.csv "Overall Median Tenure (months)"
+ Display as: [X] mo, with the "mo" in hitchMedTeal smaller superscript
+ Context line: "95% CI: [A]–[B] months" from CI fields
+- Card 2: Era change — % difference between Pre-COVID and Post-COVID medians
+ Calculate: ((post - pre) / pre * 100).toFixed(0) + "%"
+ Show ↓ or ↑ depending on direction
+ Color: hitchMedTeal if decrease (shorter tenure), hitchTeal if increase
+- Card 3: Peak hazard month — from key_findings.csv "Peak Hazard Month"
+ Display as: "Mo [X]"
+ Context: "Highest exit probability"
+
+
+SURVIVAL CHART (SurvivalChart.tsx):
+- Data: km_survival_data.csv
+- Recharts LineChart + AreaChart (area for CI band)
+- X axis: time_months, 0–84, labeled at 0 / 24 / 48 / 72 / 84
+- Y axis: survival_prob, 0–1.0, formatted as percentage (0% to 100%)
+- Main line: survival_prob, hitchDarkTeal, strokeWidth 2.5, no dots
+- CI band: Area between ci_lower and ci_upper, fill hitchLightGray, opacity 0.45
+- Reference lines: horizontal at 0.5 (50%), vertical at median month
+ Both dashed, hitchBlueGray
+- Custom dot at median intersection: white fill, hitchDarkTeal stroke
+- Custom tooltip: "Month [X]: [Y]% probability of remaining in role"
+- Grid: horizontal lines only, hitchLightGray, opacity 0.5
+- No legend needed (single series)
+- Responsive: ResponsiveContainer width="100%"
+
+
+ERA MEDIANS (EraMedians.tsx):
+- 3 columns, each showing:
+ Era name (color-coded)
+ Large serif number in months
+ Small unit label
+ Proportional horizontal bar (bar width = value / max_value * 100%)
+- Colors: Pre-COVID = hitchDarkTeal / COVID = hitchTeal / Post-COVID = hitchMedTeal
+- Values from key_findings.csv rows "Pre-COVID Median", "COVID Median", "Post-COVID Median"
+
+
+ERA CHART (EraChart.tsx):
+- Data: km_era_data.csv
+- Recharts LineChart with three series (one per era)
+- X axis: time_months 0–84
+- Y axis: survival_prob 0–1.0 as percentage
+- Three lines:
+   Pre-COVID: hitchDarkTeal, solid, strokeWidth 2.5
+   COVID: hitchTeal, strokeDasharray "7 3", strokeWidth 2
+   Post-COVID: hitchMedTeal, strokeDasharray "2 4", strokeWidth 2
+- In-chart legend box (position: top-right of chart area):
+   Shows era names + line style + n= completed episodes per era
+   White background, 1px border hitchLightGray, 8px radius
+- Log-rank p-value annotated in legend box
+- Custom tooltip showing all three values at hovered month
+- No confidence bands (intentional — too cluttered with 3 series)
+- Caption below: "KM curves shown for visual comparison; primary median figures
+ derived from Cox model with clustered standard errors."
+
+
+HAZARD CHART (HazardChart.tsx):
+- Data: hazard_data.csv
+- Recharts AreaChart (area fill = hitchDarkTeal at 6% opacity for cumulative feel)
+- Line: hazard_smoothed, hitchDarkTeal, strokeWidth 2.5
+- X axis: time_months 0–84
+- Y axis: hazard_rate — label as "Exit hazard" — no raw numbers on axis,
+ just "Low" at bottom and "High" at top (human-readable)
+- Reference line at peak month: hitchMedTeal, dashed
+- Custom label at peak: "Peak: Month [X]" in hitchMedTeal
+- Three stat tiles below the chart (flexbox row):
+   Tile 1: "Peak exit month" — Month [X] — from key_findings.csv
+   Tile 2: "Low-risk threshold" — read from hazard_data where smoothed drops
+            below 50% of peak value, post-peak
+   Tile 3: "Completed episodes" — n_completed from key_findings.csv overall row
+ Each tile: light gray bg, rounded-lg, padding 12px 14px
+
+
+COHORT CHART (CohortChart.tsx):
+- Data: cohort_trend.csv
+- This is a custom dot-and-whisker chart — NOT a standard Recharts chart type
+- Use Recharts ComposedChart with custom shapes
+- X axis: start_year 2017–2024 (categorical, even spacing)
+- Y axis: months — label "Months in role"
+- For each year:
+   Vertical line from ci_lower to ci_upper (error bar): 1.5px
+   Horizontal tick caps at ci_lower and ci_upper: 12px wide
+   Central dot at median_months:
+     - If low_confidence=false: filled circle, era color
+     - If low_confidence=true: open circle (fill=white), dashed stroke, era color
+   n= label above each point: small text, same era color
+- Era colors: 2017-2019 = hitchDarkTeal, 2020-2021 = hitchTeal, 2022-2024 = hitchMedTeal
+- COVID era shaded: rect from 2020–2021 columns, hitchLightGray fill opacity 0.2,
+ with "COVID era" text label
+- Footnote below: list any years where low_confidence=true explicitly
+
+
+SAMPLE COMPOSITION (SampleComposition.tsx):
+- Data: sample_composition_summary.csv, filtered by section_label
+- 3 columns: Company Size | Industry | Region
+- Each column: section header in uppercase muted, then a list of rows
+- Each row: label (min-width 140px) + horizontal bar + percentage
+- Bar: hitchDarkTeal fill, light gray track, height 8px, rounded
+- Bar width: pct / max_pct * 100% within each section
+- Italic footnote below all three: from CLAUDE.md methodology disclosures on covariates
+
+
+SHARE BAR (ShareBar.tsx):
+- "Share this research" label
+- LinkedIn button: links to LinkedIn share URL with report URL + default text
+ "Hitch Partners just published the most rigorous CISO tenure study ever conducted.
+  8 years of data. 1,200 CISOs. Here's how long they actually last:"
+- Email button: mailto: link with subject "CISO Tenure Study — Hitch Partners"
+ and body linking to the report URL
+- Copy link button: copies window.location.href to clipboard, shows "Copied!" for 2 seconds
+- Download PDF button: right-aligned, dark bg — links to /ciso-tenure-study.pdf
+ (placeholder — PDF generation is a separate task)
+
+
+METHODOLOGY (Methodology.tsx):
+- 4 cards: Sample | Statistical Method | Era Definitions | Limitations
+- Use exact language from CLAUDE.md METHODOLOGY DISCLOSURES section
+- Light gray bg cards, 10px radius, 20px 22px padding
+- Uppercase muted label above each card body
+
+
+---
+
+
+METADATA (layout.tsx):
+ title: "How Long Does a CISO Actually Last? | Hitch Partners Research"
+ description: "Eight years of tenure data across 1,200 North American security
+   leaders reveals how the CISO role has changed — before, during, and after COVID."
+ og:title: same as title
+ og:description: same as description
+ og:image: "/og-image.png" (1200x630 — create a placeholder for now)
+ og:type: "article"
+ twitter:card: "summary_large_image"
+
+
+---
+
+
+DATA PIPELINE ADDITIONS REQUIRED:
+
+
+The following exports must be added to scripts/05_survival_analysis.py
+(add at the end of each analysis block):
+
+
+After Analysis 1 (Overall KM):
+ Export kmf timeline data:
+ pd.DataFrame({
+   'time_months': kmf.timeline,
+   'survival_prob': kmf.survival_function_['KM_estimate'],
+   'ci_lower': kmf.confidence_interval_['KM_estimate_lower_0.95'],
+   'ci_upper': kmf.confidence_interval_['KM_estimate_upper_0.95']
+ }).to_csv('output/tables/km_survival_data.csv', index=False)
+
+
+After Analysis 2 (Era KM):
+ For each era, append to a list, then concat and export:
+ km_era_rows = []
+ for era, kmf_era in era_fits.items():
+   df_era = pd.DataFrame({
+     'time_months': kmf_era.timeline,
+     'era': era,
+     'survival_prob': kmf_era.survival_function_['KM_estimate'],
+     'ci_lower': kmf_era.confidence_interval_['KM_estimate_lower_0.95'],
+     'ci_upper': kmf_era.confidence_interval_['KM_estimate_upper_0.95']
+   })
+   km_era_rows.append(df_era)
+ pd.concat(km_era_rows).to_csv('output/tables/km_era_data.csv', index=False)
+
+
+After Analysis 3 (Hazard):
+ Export smoothed hazard values:
+ pd.DataFrame({
+   'time_months': naf.timeline,
+   'hazard_rate': naf.cumulative_hazard_['NA_estimate'].diff().fillna(0),
+   'hazard_smoothed': naf.cumulative_hazard_['NA_estimate'].diff().fillna(0).rolling(3, center=True).mean()
+ }).to_csv('output/tables/hazard_data.csv', index=False)
+
+
+After Analysis 4 (Cohort):
+ The cohort_trend.csv is already specified in Prompt 7 — confirm it exports:
+ start_year, median_months, ci_lower, ci_upper, n_completed, low_confidence
+
+
+---
+
+
+DEPLOYMENT:
+
+
+After building and testing locally (npm run dev), deploy to Vercel:
+ vercel --prod
+
+
+The report should be live at the Hitch Vercel domain.
+Confirm the Vercel MCP is connected so you can deploy directly.
+
+
+Print the production URL when deployment is complete.
+
+
+---
+
+
+AFTER BUILDING:
+
+
+Run through this checklist before telling me it's done:
+
+
+[ ] npm run build passes with no TypeScript errors
+[ ] All four charts render with placeholder data (use sample CSV files if
+   pipeline output not yet available)
+[ ] Sticky nav links scroll to correct sections
+[ ] Share buttons work (copy link, LinkedIn share URL, mailto)
+[ ] Mobile layout tested at 375px width — nav collapses correctly
+[ ] All text is readable (no hardcoded dark colors that break on light bg)
+[ ] No numbers are hardcoded — all values read from CSV files
+[ ] og:image placeholder exists at /public/og-image.png
+[ ] Vercel deployment succeeds
+```
+
+
+---
+
+
+## PLACEHOLDER DATA FOR DEVELOPMENT
+
+
+If pipeline outputs are not yet available, create these sample files in
+`public/sample-data/` for development. Swap to real `output/tables/` path
+at build time via an environment variable:
+
+
+```
+NEXT_PUBLIC_DATA_PATH=output/tables   # production (real data)
+NEXT_PUBLIC_DATA_PATH=public/sample-data  # development (placeholder)
+```
+
+
+Sample km_survival_data.csv (first few rows):
+```
+time_months,survival_prob,ci_lower,ci_upper
+0,1.000,1.000,1.000
+3,0.962,0.948,0.974
+6,0.918,0.901,0.934
+12,0.841,0.821,0.860
+18,0.768,0.745,0.789
+24,0.693,0.669,0.716
+30,0.624,0.599,0.648
+36,0.558,0.532,0.583
+42,0.496,0.470,0.522
+48,0.438,0.412,0.464
+54,0.385,0.359,0.411
+60,0.336,0.311,0.362
+72,0.252,0.229,0.277
+84,0.186,0.164,0.210
+```
+
+
+---
+
+
+*Prompt 9 | Hitch Partners CISO Tenure Study*
+*Depends on: CLAUDE.md, all Phase 1–8 outputs, Vercel MCP connected*
+
+
+
+
+→ HUMAN GATE — FINAL REVIEW
+
+
+Before publishing anything:
+
+
+1. Read methodology_note.md end to end
+2. Verify all four figures open correctly at 300 DPI
+3. Review key_findings.csv — these are the numbers that will be quoted in media
+4. Confirm sample_composition_summary.csv reflects your actual sample
+
+
+The methodology note should be published publicly (Hitch website, LinkedIn article, or dated Google Doc) before you run any analysis. The timestamp establishes pre-registration credibility.
+
+
+________________
+
+
+
+
+________________
+
+
+EXECUTION SUMMARY
+Prompt
+	Phase
+	What Gets Built
+	Human Gate
+	1
+	Scaffold
+	Project structure, dependencies
+	Confirm packages installed
+	2
+	Validate
+	Input CSV validator
+	Fix CSV errors
+	3
+	Scrape
+	Apify scraper (review before running)
+	Approve script, monitor run
+	4
+	ETL
+	Episode extraction + normalization
+	Check sample size thresholds
+	5
+	QA
+	Flag system + flagged CSV
+	Manual QA — 2–3 hours
+	6
+	Covariates
+	Guards + composition tables
+	Review sample composition
+	7
+	Analysis
+	KM curves, hazard rate, cohort trend, key findings
+	Review all figures + numbers
+	8
+	Export
+	Final figures + methodology note
+	Read everything before publishing
+	
+
+Total Claude Code sessions estimated: 4–5 Natural break points: after Prompt 3 (scrape run), after Prompt 5 (manual QA), after Prompt 7 (review findings).
+
+
+________________
+
+
+
+
+Prompt series v1.0 | Hitch Partners CISO Tenure Study Aligned with CLAUDE.md v1.0 | Supersedes all prior prompt packages

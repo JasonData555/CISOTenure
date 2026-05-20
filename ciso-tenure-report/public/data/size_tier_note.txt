@@ -1,0 +1,1 @@
+Company size, industry, and geographic region are reported for sample composition purposes only. Because these attributes can change materially over an 8-year study window through acquisitions, growth, and relocation, they are not used as stratification variables in survival analysis.

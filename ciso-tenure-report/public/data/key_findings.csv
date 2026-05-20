@@ -1,0 +1,10 @@
+metric,value,unit,n_episodes,n_completed,notes
+Overall Median Tenure,49.0,months,1549,1163,KM estimate
+Overall Median Tenure,4.1,years,1549,1163,KM estimate
+Pre-COVID Median,51.0,months,1190,1006,KM estimate
+COVID Median,42.0,months,137,89,KM estimate
+Post-COVID Median,37.0,months,222,68,KM estimate
+Log-rank p-value,0.0077,—,—,—,Era comparison
+Peak Hazard Month,26,months,—,1163,Nelson-Aalen smoothed
+Censored Episodes,386,count,1549,—,Ongoing roles at scrape
+Censoring Rate,24.9,%,1549,—,

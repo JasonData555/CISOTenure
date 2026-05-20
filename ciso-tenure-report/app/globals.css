@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 64px;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  background-color: #ffffff;
+  color: #1a1a1a;
+}
+
+/* Shared section typography */
+.eyebrow {
+  @apply text-xs font-sans font-medium tracking-widest uppercase text-hitchBlueGray mb-3;
+}
+
+.section-number {
+  @apply text-hitchMedTeal font-sans font-medium text-sm tracking-widest uppercase mb-2;
+}
+
+.section-heading {
+  @apply font-serif text-hitchDarkTeal text-3xl md:text-4xl leading-tight mb-4;
+}
+
+.section-subhead {
+  @apply font-sans font-light text-hitchBlueGray text-base md:text-lg max-w-2xl;
+}
+
+.chart-caption {
+  @apply font-sans font-light text-hitchBlueGray text-xs italic mt-4 leading-relaxed;
+}

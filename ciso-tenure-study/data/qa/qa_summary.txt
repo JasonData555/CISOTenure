@@ -1,0 +1,24 @@
+QA FLAG SUMMARY — CISO Tenure Study
+Generated: 2026-05-17 12:15
+
+─────────────────────────────────────────────────────────────────────────────────
+Flag                    Condition                              Count      Pct  Action
+─────────────────────────────────────────────────────────────────────────────────
+DURATION_UNDER_3MO      duration < 3 months                       36      1.2%  Likely data error — review
+DURATION_OVER_120MO     duration > 120 months                    914     31.1%  Verify profile is current
+DURATION_IMPUTED        Any imputed date                         230      7.8%  Disclose in reporting
+START_BEFORE_2000       start_year < 2000                         32      1.1%  Exclude from era analysis
+FUTURE_END_DATE         end_year > current year                    0      0.0%  Data error — fix or exclude
+END_BEFORE_START        end < start                                0      0.0%  Data error — must fix or exclude
+TITLE_AMBIGUOUS         VP_Security title                        319     10.9%  Human confirm: top security executive?
+TITLE_INTERIM           "interim" or "acting" in title             0      0.0%  Include with note
+SINGLE_MONTH_TENURE     start = end month                          7      0.2%  Verify — likely data error
+OVERLAPPING_EPISODES    Two CISO episodes overlap                704     24.0%  Profile-level error — resolve
+NO_END_DATE_OLD_ROLE    is_censored=True and start_year < 2020      213      7.2%  Verify profile is current
+─────────────────────────────────────────────────────────────────────────────────
+
+Total flagged episodes: 1,756 of 2,939 (59.7%)
+Estimated manual review time at 2 min/row: 3,512 minutes
+
+Next step: Open data/qa/flagged_for_review.csv, resolve each row,
+then save the cleaned dataset as data/final/tenure_episodes_clean.csv

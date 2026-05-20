@@ -1,0 +1,78 @@
+================================================================================
+CISO TENURE STUDY — INPUT VALIDATION REPORT
+================================================================================
+Generated : 2026-05-16 16:50:11
+Input file: /Users/jasonowens/Desktop/CISOTenure/ciso-tenure-study/data/input/profiles.csv
+Total rows: 1,456
+
+--------------------------------------------------------------------------------
+COLUMN DETECTION
+--------------------------------------------------------------------------------
+  'LinkedIn' → profile_url (alias match)
+  'Current Company Size' → company_size_tier (alias match)
+  'Industry' → industry_sector (alias match)
+  'profile_region' → NOT PRESENT (optional — skipped)
+  Extra columns (not validated, carried through): Title
+
+--------------------------------------------------------------------------------
+COLUMN SUMMARY
+--------------------------------------------------------------------------------
+
+[profile_url]
+  Total values              : 1,456
+  Empty / missing           : 0  
+  Invalid pattern           : 0  
+  Bare URL (no https://)    : 0  
+  http:// (not https://)    : 1  ← WARNING
+  Duplicate URLs            : 5 pair(s) found  ← WARNING
+
+[company_size_tier]
+  Valid employee-range values: 1,456
+  Multi-value (ambiguous)    : 0  
+  Unrecognized values        : 0  
+
+  Distribution:
+    10000+      :   530 (36.4%)
+    5001-10000  :   145 (10.0%)
+    1001-5000   :   300 (20.6%)
+    501-1000    :   147 (10.1%)
+    251-500     :   129 (8.9%)
+    101-250     :    99 (6.8%)
+    51-100      :    49 (3.4%)
+    11-50       :    36 (2.5%)
+    1-10        :    21 (1.4%)
+[industry_sector]
+  Total values              : 1,456
+  Missing / empty           : 0
+  Unique values             : 33
+  Multi-value cells         : 0  
+
+[profile_region]
+  Status: Column not present in file (optional — no action required)
+
+--------------------------------------------------------------------------------
+CRITICAL ERRORS (0 total)
+--------------------------------------------------------------------------------
+  None.
+
+--------------------------------------------------------------------------------
+WARNINGS (6 total)
+--------------------------------------------------------------------------------
+  [URL-W002] 1 rows use http:// (not https://) — recommend updating. Rows: 1412
+  [URL-W003] Duplicate URL: 'https://www.linkedin.com/in/gregorycrabb'
+           Appears at rows: 94, 103
+  [URL-W003] Duplicate URL: 'https://www.linkedin.com/in/edyygarcia'
+           Appears at rows: 531, 1328
+  [URL-W003] Duplicate URL: 'https://www.linkedin.com/in/robertlim'
+           Appears at rows: 553, 688
+  [URL-W003] Duplicate URL: 'https://www.linkedin.com/in/johnpetrie'
+           Appears at rows: 628, 1325
+  [URL-W003] Duplicate URL: 'https://www.linkedin.com/in/paulshen'
+           Appears at rows: 754, 1451
+
+--------------------------------------------------------------------------------
+FINAL STATUS: PASS WITH WARNINGS
+--------------------------------------------------------------------------------
+  No blocking errors found. Scraping may proceed.
+  Resolve warnings before Phase 5 (survival analysis).
+================================================================================

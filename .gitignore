@@ -1,0 +1,35 @@
+# Raw input data — contains individual-level LinkedIn profiles
+profiles.csv
+
+# Python virtual environment
+ciso-tenure-study/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Python analysis input data (raw + cleaned episodes)
+ciso-tenure-study/data/raw/
+ciso-tenure-study/data/final/
+
+# Environment secrets
+ciso-tenure-study/.env
+ciso-tenure-report/.env.development.local
+ciso-tenure-report/.env*.local
+
+# Next.js build artifacts
+ciso-tenure-report/.next/
+ciso-tenure-report/out/
+
+# Node modules
+ciso-tenure-report/node_modules/
+
+# Vercel deployment metadata
+ciso-tenure-report/.vercel/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor
+.idea/
+*.swp

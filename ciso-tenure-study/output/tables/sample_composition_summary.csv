@@ -1,0 +1,20 @@
+section_label,category,n,pct
+Company Size,1-10,14,1.8
+Company Size,10000+,264,34.0
+Company Size,1001-5000,143,18.4
+Company Size,101-250,43,5.5
+Company Size,11-50,16,2.1
+Company Size,251-500,65,8.4
+Company Size,5001-10000,73,9.4
+Company Size,501-1000,75,9.7
+Company Size,51-100,23,3.0
+Company Size,,61,7.9
+Industry,Technology,238,30.6
+Industry,Financial Services,197,25.4
+Industry,Other,120,15.4
+Industry,Healthcare,80,10.3
+Industry,Retail & Consumer,77,9.9
+Industry,Manufacturing,42,5.4
+Industry,Professional Svcs,18,2.3
+Industry,Government,5,0.6
+Region,Unknown,777,100.0
