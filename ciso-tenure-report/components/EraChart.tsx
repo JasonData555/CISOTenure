@@ -101,16 +101,16 @@ export default function EraChart({ data, pValue, eraCounts }: Props) {
               value: 'Months in Role',
               position: 'insideBottom',
               offset: -10,
-              style: { fill: '#6D8B8C', fontSize: 11 },
+              style: { fill: '#0D2426', fontSize: 11 },
             }}
-            tick={{ fill: '#6D8B8C', fontSize: 10 }}
+            tick={{ fill: '#0D2426', fontSize: 10 }}
             axisLine={{ stroke: '#D3D9D4' }}
             tickLine={false}
           />
           <YAxis
             domain={[0, 1.05]}
             tickFormatter={v => `${Math.round(v * 100)}%`}
-            tick={{ fill: '#6D8B8C', fontSize: 10 }}
+            tick={{ fill: '#0D2426', fontSize: 10 }}
             axisLine={false}
             tickLine={false}
             width={48}

@@ -50,7 +50,7 @@ function LowYAxisTick({ x, y, index, visibleTicksCount }: {
       y={y}
       dy={isBottom ? 4 : 4}
       textAnchor="end"
-      fill="#6D8B8C"
+      fill="#0D2426"
       fontSize={10}
       fontFamily="var(--font-sans)"
     >
@@ -90,9 +90,9 @@ export default function HazardChart({ data, findings }: Props) {
               value: 'Months in Role',
               position: 'insideBottom',
               offset: -10,
-              style: { fill: '#6D8B8C', fontSize: 11 },
+              style: { fill: '#0D2426', fontSize: 11 },
             }}
-            tick={{ fill: '#6D8B8C', fontSize: 10 }}
+            tick={{ fill: '#0D2426', fontSize: 10 }}
             axisLine={{ stroke: '#D3D9D4' }}
             tickLine={false}
           />
@@ -102,7 +102,7 @@ export default function HazardChart({ data, findings }: Props) {
               angle: -90,
               position: 'insideLeft',
               offset: 15,
-              style: { fill: '#6D8B8C', fontSize: 11 },
+              style: { fill: '#0D2426', fontSize: 11 },
             }}
             tick={<LowYAxisTick />}
             axisLine={false}
@@ -120,7 +120,7 @@ export default function HazardChart({ data, findings }: Props) {
             label={{
               value: `Peak: Month ${peakMonth}`,
               position: 'top',
-              style: { fill: '#3B8A7F', fontSize: 9, fontWeight: '600' },
+              style: { fill: '#0D2426', fontSize: 9, fontWeight: '600' },
             }}
           />
 
@@ -134,7 +134,7 @@ export default function HazardChart({ data, findings }: Props) {
               label={{
                 value: `Risk subsides: Mo ${lowRiskMonth}`,
                 position: 'top',
-                style: { fill: '#6D8B8C', fontSize: 9 },
+                style: { fill: '#0D2426', fontSize: 9 },
               }}
             />
           )}

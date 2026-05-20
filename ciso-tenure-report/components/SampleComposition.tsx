@@ -24,7 +24,11 @@ interface CustomTooltipProps {
 const SECTIONS = [
   { key: 'Company Size', label: 'Company Size' },
   { key: 'Industry',     label: 'Industry' },
-  { key: 'Region',       label: 'Region' },
+]
+
+const SIZE_ORDER = [
+  '1-10', '11-50', '51-100', '101-250',
+  '251-500', '501-1000', '1001-5000', '5001-10000', '10000+',
 ]
 
 function CustomTooltip({ active, payload }: CustomTooltipProps) {
@@ -81,12 +85,21 @@ export default function SampleComposition({ data }: Props) {
       if (!map[row.section_label]) map[row.section_label] = []
       map[row.section_label].push(row)
     }
+    if (map['Company Size']) {
+      map['Company Size'].sort((a, b) => {
+        const ai = SIZE_ORDER.indexOf(a.category)
+        const bi = SIZE_ORDER.indexOf(b.category)
+        const ai2 = ai === -1 ? SIZE_ORDER.length : ai
+        const bi2 = bi === -1 ? SIZE_ORDER.length : bi
+        return ai2 - bi2
+      })
+    }
     return map
   }, [data])
 
   return (
     <div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {SECTIONS.map(section => {
           const rows = bySection[section.key] ?? []
           return (
@@ -103,11 +116,9 @@ export default function SampleComposition({ data }: Props) {
       </div>
 
       <p className="chart-caption mt-6">
-        Company size, industry, and region are <strong>descriptive only</strong> — these
-        variables are not used for stratification or survival analysis. Region is 100%
-        unknown because LinkedIn does not provide historical location data per episode.
-        All survival estimates are derived from era classification (Pre-COVID / COVID /
-        Post-COVID) only.
+        Company size and industry are <strong>descriptive only</strong> — these variables
+        are not used for stratification or survival analysis. All survival estimates are
+        derived from era classification (Pre-COVID / COVID / Post-COVID) only.
       </p>
     </div>
   )

@@ -58,7 +58,7 @@ export default function SurvivalChart({ data, findings }: Props) {
 
   return (
     <ResponsiveContainer width="100%" height={400}>
-      <ComposedChart data={data} margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
+      <ComposedChart data={data} margin={{ top: 28, right: 20, bottom: 20, left: 10 }}>
         <CartesianGrid
           horizontal={true}
           vertical={false}
@@ -75,9 +75,9 @@ export default function SurvivalChart({ data, findings }: Props) {
             value: 'Months in Role',
             position: 'insideBottom',
             offset: -10,
-            style: { fill: '#6D8B8C', fontSize: 11, fontFamily: 'var(--font-sans)' },
+            style: { fill: '#0D2426', fontSize: 11, fontFamily: 'var(--font-sans)' },
           }}
-          tick={{ fill: '#6D8B8C', fontSize: 10 }}
+          tick={{ fill: '#0D2426', fontSize: 10 }}
           axisLine={{ stroke: '#D3D9D4' }}
           tickLine={false}
         />
@@ -89,9 +89,9 @@ export default function SurvivalChart({ data, findings }: Props) {
             angle: -90,
             position: 'insideLeft',
             offset: 15,
-            style: { fill: '#6D8B8C', fontSize: 11, fontFamily: 'var(--font-sans)' },
+            style: { fill: '#0D2426', fontSize: 11, fontFamily: 'var(--font-sans)' },
           }}
-          tick={{ fill: '#6D8B8C', fontSize: 10 }}
+          tick={{ fill: '#0D2426', fontSize: 10 }}
           axisLine={false}
           tickLine={false}
           width={52}
@@ -137,7 +137,7 @@ export default function SurvivalChart({ data, findings }: Props) {
           label={{
             value: `Median: ${medianMonths}mo`,
             position: 'top',
-            style: { fill: '#0D2426', fontSize: 9, fontWeight: '500' },
+            style: { fill: '#0D2426', fontSize: 13, fontWeight: '500' },
           }}
         />
 
