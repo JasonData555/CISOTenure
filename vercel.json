@@ -1,3 +1,5 @@
 {
-  "rootDirectory": "ciso-tenure-report"
+  "buildCommand": "cd ciso-tenure-report && npm run build",
+  "installCommand": "cd ciso-tenure-report && npm install",
+  "outputDirectory": "ciso-tenure-report/.next"
 }
