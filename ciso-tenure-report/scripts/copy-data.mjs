@@ -22,3 +22,4 @@ if (fs.existsSync(src)) {
 } else {
   console.warn(`⚠ Python output not found at ${src} — using existing public/data/`)
 }
+

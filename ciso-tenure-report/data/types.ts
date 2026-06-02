@@ -49,3 +49,9 @@ export interface CompositionRow {
   n: number
   pct: number
 }
+
+export interface GroupMedianRow {
+  group: string
+  median: number
+  n: number
+}

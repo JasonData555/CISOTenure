@@ -18,6 +18,7 @@ import type {
   HazardRow,
   CohortRow,
   CompositionRow,
+  GroupMedianRow,
 } from './types'
 
 const DATA_PATH = process.env.NEXT_PUBLIC_DATA_PATH ?? 'public/sample-data'
@@ -138,4 +139,30 @@ export function loadComposition(): CompositionRow[] {
     n:             parseInt(col(headers, row, 'n')),
     pct:           parseFloat(col(headers, row, 'pct')),
   }))
+}
+
+// ---------------------------------------------------------------------------
+
+export function loadSizeMedians(): GroupMedianRow[] {
+  const { headers, rows } = readCsvRows('size_medians.csv')
+  if (!headers.length) return []
+  const result = rows.map(row => ({
+    group:  col(headers, row, 'group'),
+    median: parseFloat(col(headers, row, 'median')),
+    n:      parseInt(col(headers, row, 'n')),
+  })).filter(r => r.group && !isNaN(r.median) && !isNaN(r.n))
+  result.forEach(r => console.log(`[loadSizeMedians] ${r.group}: median=${r.median}mo, n=${r.n}`))
+  return result
+}
+
+export function loadIndustryMedians(): GroupMedianRow[] {
+  const { headers, rows } = readCsvRows('industry_medians.csv')
+  if (!headers.length) return []
+  const result = rows.map(row => ({
+    group:  col(headers, row, 'group'),
+    median: parseFloat(col(headers, row, 'median')),
+    n:      parseInt(col(headers, row, 'n')),
+  })).filter(r => r.group && !isNaN(r.median) && !isNaN(r.n) && r.n >= 20)
+  result.forEach(r => console.log(`[loadIndustryMedians] ${r.group}: median=${r.median}mo, n=${r.n}`))
+  return result
 }

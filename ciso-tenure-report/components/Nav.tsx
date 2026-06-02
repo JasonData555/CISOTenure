@@ -7,7 +7,9 @@ const NAV_LINKS = [
   { label: '02 Eras',     href: '#eras' },
   { label: '03 Hazard',   href: '#hazard' },
   { label: '04 Cohort',   href: '#cohort' },
-  { label: '05 Sample',   href: '#sample' },
+  { label: '05 Size',     href: '#size' },
+  { label: '06 Industry', href: '#industry' },
+  { label: '07 Sample',   href: '#sample' },
   { label: 'Methodology', href: '#methodology' },
 ]
 

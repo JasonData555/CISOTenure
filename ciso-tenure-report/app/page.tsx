@@ -5,6 +5,8 @@ import {
   loadHazard,
   loadCohortTrend,
   loadComposition,
+  loadSizeMedians,
+  loadIndustryMedians,
 } from '@/data/loader'
 
 import Nav               from '@/components/Nav'
@@ -16,6 +18,8 @@ import EraChart          from '@/components/EraChart'
 import HazardChart       from '@/components/HazardChart'
 import CohortChart       from '@/components/CohortChart'
 import SampleComposition from '@/components/SampleComposition'
+import CompanySize       from '@/components/CompanySize'
+import IndustrySection   from '@/components/IndustrySection'
 import ShareBar          from '@/components/ShareBar'
 import Methodology       from '@/components/Methodology'
 import Footer            from '@/components/Footer'
@@ -24,12 +28,14 @@ import Footer            from '@/components/Footer'
 export const dynamic = 'force-static'
 
 export default async function Page() {
-  const findings    = loadKeyFindings()
-  const kmSurvival  = loadKmSurvival()
-  const kmEra       = loadKmEra()
-  const hazard      = loadHazard()
-  const cohort      = loadCohortTrend()
-  const composition = loadComposition()
+  const findings       = loadKeyFindings()
+  const kmSurvival     = loadKmSurvival()
+  const kmEra          = loadKmEra()
+  const hazard         = loadHazard()
+  const cohort         = loadCohortTrend()
+  const composition    = loadComposition()
+  const sizeMedians    = loadSizeMedians()
+  const industryMedians = loadIndustryMedians()
 
   // Extract p-value for EraChart legend
   const pValueRow = findings.find(f => f.metric === 'Log-rank p-value')
@@ -141,11 +147,42 @@ export default async function Page() {
           </div>
         </section>
 
+        {/* Figure 6 — Company Size */}
+        <section id="size" className="py-20 px-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-10">
+              <p className="section-number">05 — Company Size</p>
+              <h2 className="section-heading">Larger Organizations Retain CISOs Longer</h2>
+              <p className="section-subhead">
+                Descriptive median tenure by company size tier. Size is not used for
+                stratification or survival analysis.
+              </p>
+            </div>
+            <CompanySize data={sizeMedians} />
+          </div>
+        </section>
+
+        {/* Figure 7 — Industry */}
+        <section id="industry" className="py-20 px-6 bg-gray-50">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-10">
+              <p className="section-number">06 — Industry</p>
+              <h2 className="section-heading">Healthcare Outlasts Tech by Nearly a Year</h2>
+              <p className="section-subhead">
+                Descriptive median tenure by industry group. Industry is a descriptive
+                variable only. Healthcare/HealthTech vs. Enterprise Tech/Cloud log-rank
+                p=0.005; see figure caption for confounding disclosure.
+              </p>
+            </div>
+            <IndustrySection data={industryMedians} />
+          </div>
+        </section>
+
         {/* Figure 5 — Sample Composition */}
         <section id="sample" className="py-20 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="mb-10">
-              <p className="section-number">05 — Sample Composition</p>
+              <p className="section-number">07 — Sample Composition</p>
               <h2 className="section-heading">Who&rsquo;s in the Study?</h2>
               <p className="section-subhead">
                 Descriptive breakdown of the sample by company size, industry, and region.
