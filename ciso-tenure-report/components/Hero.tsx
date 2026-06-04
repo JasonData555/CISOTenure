@@ -20,8 +20,8 @@ export default function Hero({ findings }: Props) {
   const censorRate    = findValue(findings, 'Censoring Rate')
 
   const META = [
-    { label: 'Profiles',   value: nEp },
-    { label: 'Episodes',   value: nComp },
+    { label: 'Episodes',   value: nEp },
+    { label: 'Completed',  value: nComp },
     { label: 'Window',     value: '2017–2025' },
     { label: 'Method',     value: 'Kaplan-Meier' },
     { label: 'Published',  value: 'May 2025' },

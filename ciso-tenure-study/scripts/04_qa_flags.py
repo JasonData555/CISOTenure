@@ -119,11 +119,14 @@ def load_input() -> pd.DataFrame:
 # Individual flag masks
 # ---------------------------------------------------------------------------
 def mask_duration_under_3mo(df: pd.DataFrame) -> pd.Series:
-    return df["duration_months_to_scrape_date"] < 3
+    # Use actual completed duration when available; scrape-relative duration for ongoing roles
+    dur = df["duration_months"].where(df["duration_months"].notna(), df["duration_months_to_scrape_date"])
+    return dur < 3
 
 
 def mask_duration_over_120mo(df: pd.DataFrame) -> pd.Series:
-    return df["duration_months_to_scrape_date"] > 120
+    dur = df["duration_months"].where(df["duration_months"].notna(), df["duration_months_to_scrape_date"])
+    return dur > 120
 
 
 def mask_duration_imputed(df: pd.DataFrame) -> pd.Series:

@@ -107,7 +107,12 @@ def load_data() -> pd.DataFrame:
     df = df[df['km_duration'].notna() & (df['km_duration'] > 0)].copy()
     dropped = before - len(df)
     if dropped > 0:
-        print(yellow(f"  Dropped {dropped} rows with null/zero km_duration"))
+        # These are roles that started the same month as the scrape date (2026-05)
+        # and therefore have duration_months_to_scrape_date = 0. They cannot
+        # contribute to survival analysis and are excluded here. They should
+        # ideally be coded qa_decision='EXCLUDE' in tenure_episodes_clean.csv
+        # to keep the KEEP count consistent with the analysis sample.
+        print(yellow(f"  Dropped {dropped} rows with null/zero km_duration (roles starting in scrape month)"))
 
     n_total     = len(df)
     n_censored  = int(df['is_censored'].sum())

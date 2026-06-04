@@ -171,7 +171,7 @@ export default async function Page() {
               <p className="section-subhead">
                 Descriptive median tenure by industry group. Industry is a descriptive
                 variable only. Healthcare/HealthTech vs. Enterprise Tech/Cloud log-rank
-                p=0.005; see figure caption for confounding disclosure.
+                p=0.014; see figure caption for confounding disclosure.
               </p>
             </div>
             <IndustrySection data={industryMedians} />

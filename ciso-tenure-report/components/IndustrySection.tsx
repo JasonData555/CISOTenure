@@ -83,11 +83,11 @@ export default function IndustrySection({ data }: Props) {
       </ResponsiveContainer>
 
       <p className="chart-caption mt-6">
-        Figure 7. Median completed tenure by industry group. Completed episodes only.
-        Sectors consolidated from 31 raw categories. Healthcare/HealthTech vs. Enterprise
-        Tech/Cloud log-rank p=0.005. Industry and company size are partially correlated —
-        regulated industries skew toward larger organizations. No independent causal claim
-        is made for industry in isolation.
+        Figure 7. Kaplan-Meier median tenure by industry group (all episodes, censoring
+        accounted for). Sectors consolidated from 31 raw categories. Healthcare/HealthTech
+        vs. Enterprise Tech/Cloud pairwise log-rank p=0.014. Industry and company size are
+        partially correlated — regulated industries skew toward larger organizations. No
+        independent causal claim is made for industry in isolation.
       </p>
 
       <p className="chart-caption mt-4">

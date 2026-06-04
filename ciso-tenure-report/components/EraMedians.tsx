@@ -18,7 +18,7 @@ const ERA_CONFIG = [
   {
     key:    'Pre-COVID Median',
     label:  'Pre-COVID',
-    sub:    'Before Jan 2020',
+    sub:    'Before March 2020',
     color:  'text-hitchDarkTeal',
     bg:     'bg-hitchDarkTeal',
     border: 'border-hitchDarkTeal',
@@ -26,7 +26,7 @@ const ERA_CONFIG = [
   {
     key:    'COVID Median',
     label:  'COVID Era',
-    sub:    'Jan 2020 – Dec 2021',
+    sub:    'Mar 2020 – Dec 2021',
     color:  'text-hitchTeal',
     bg:     'bg-hitchTeal',
     border: 'border-hitchTeal',

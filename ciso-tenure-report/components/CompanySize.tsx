@@ -124,9 +124,9 @@ export default function CompanySize({ data }: Props) {
       </div>
 
       <p className="chart-caption mt-6">
-        Figure 6. Median completed tenure by company size tier. Completed episodes only
-        (is_censored=false). Size tiers consolidated from 9 raw categories into 5 groups.
-        Directional pattern consistent across datasets; log-rank p=0.38 — treat as
+        Figure 6. Kaplan-Meier median tenure by company size tier (all episodes, censoring
+        accounted for). Size tiers consolidated from 9 raw categories into 5 groups.
+        Directional pattern consistent across datasets; log-rank p=0.60 — treat as
         indicative, not inferential.
       </p>
 
